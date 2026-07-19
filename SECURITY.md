@@ -14,7 +14,17 @@ For non-sensitive hardening suggestions, open a regular GitHub issue with the sm
 
 ## Security Boundary
 
-`ghosttag` treats image metadata as untrusted input. The parser uses bounded reads, validates container structure, limits decompression of compressed PNG text, and neutralizes terminal control characters before output.
+`ghosttag` treats image metadata as untrusted input. The inspector:
+
+- opens only regular files and rejects symbolic links and Linux special files;
+- rejects files larger than 100 MiB;
+- validates JPEG and PNG container structure and dimensions;
+- limits PNG chunk counts and metadata chunk sizes;
+- limits decompression of compressed PNG text;
+- limits XMP nesting depth and token count;
+- limits normalized metadata values and parser warnings;
+- rejects non-finite and out-of-range GPS coordinates; and
+- neutralizes terminal control and Unicode format characters before output.
 
 The tool is intentionally read-only and offline during inspection. It does not:
 
@@ -24,4 +34,6 @@ The tool is intentionally read-only and offline during inspection. It does not:
 - scan directories recursively; or
 - claim that an image is anonymous when no supported metadata is found.
 
-Malformed files may still expose implementation defects. Run `ghosttag` with the minimum permissions required and do not rely on it as the sole control for handling hostile files.
+The project-local Go bootstrap verifies the official archive checksum and recreates the ignored `.tools/go` directory from that archive instead of executing an existing unverified toolchain.
+
+Malformed files may still expose implementation defects. Run `ghosttag` with minimum permissions and operating-system resource limits, and do not rely on it as the sole control for handling hostile files.
