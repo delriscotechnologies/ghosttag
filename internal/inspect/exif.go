@@ -171,13 +171,25 @@ func (parser *tiffParser) parseIFD(offset uint32, kind int) error {
 		}
 	}
 
-	if kind == ifdGPS && len(latitude) >= 3 && len(longitude) >= 3 {
+	if kind == ifdGPS && (len(latitude) > 0 || len(longitude) > 0) {
 		if latitudeRef != "N" && latitudeRef != "S" || longitudeRef != "E" && longitudeRef != "W" {
 			parser.collector.warn("Ignored GPS coordinates from %s because direction references were missing or invalid.", parser.source)
 			return nil
 		}
-		lat := latitude[0] + latitude[1]/60 + latitude[2]/3600
-		lon := longitude[0] + longitude[1]/60 + longitude[2]/3600
+		if len(latitude) != 3 || len(longitude) != 3 {
+			parser.collector.warn("Ignored GPS coordinates from %s because degrees, minutes, and seconds were incomplete.", parser.source)
+			return nil
+		}
+		lat, err := coordinateFromDMS(latitude, 90)
+		if err != nil {
+			parser.collector.warn("Ignored invalid GPS latitude from %s: %v.", parser.source, err)
+			return nil
+		}
+		lon, err := coordinateFromDMS(longitude, 180)
+		if err != nil {
+			parser.collector.warn("Ignored invalid GPS longitude from %s: %v.", parser.source, err)
+			return nil
+		}
 		if latitudeRef == "S" {
 			lat = -lat
 		}
