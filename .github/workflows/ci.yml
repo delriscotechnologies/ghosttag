@@ -35,8 +35,23 @@ jobs:
       - name: Test inspector integration
         run: go test ./internal/inspect -run '^(TestInspect|TestRejectsUnsupportedBytes)'
 
-      - name: Test inspector XMP and GPS
-        run: go test ./internal/inspect -run '^(TestXMP|TestInvalidCaptureTime|TestRejectsInvalidXMP|TestRejectsNonFinite|TestRejectsInvalidEXIF)'
+      - name: Test non-finite coordinates
+        run: go test ./internal/inspect -run '^TestRejectsNonFiniteCoordinates$'
+
+      - name: Test invalid XMP coordinates
+        run: go test ./internal/inspect -run '^TestRejectsInvalidXMPDMSCoordinates$'
+
+      - name: Test invalid EXIF coordinates
+        run: go test ./internal/inspect -run '^TestRejectsInvalidEXIFDMSComponents$'
+
+      - name: Test XMP namespaces and locations
+        run: go test ./internal/inspect -run '^TestXMPRequiresKnownNamespacesAndKeepsLocationsSeparate$'
+
+      - name: Test XMP incomplete descriptions
+        run: go test ./internal/inspect -run '^TestXMPDoesNotCrossPairIncompleteDescriptions$'
+
+      - name: Test invalid capture time
+        run: go test ./internal/inspect -run '^TestInvalidCaptureTimeIsNotClassified$'
 
       - name: Test inspector JPEG
         run: go test ./internal/inspect -run '^TestJPEG'
