@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"strings"
+	"unicode"
 
 	"github.com/delriscotechnologies/ghosttag/internal/assessment"
 	"github.com/delriscotechnologies/ghosttag/internal/inspect"
@@ -19,29 +21,39 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 {
 		switch args[0] {
 		case "-h", "--help":
-			writeUsage(stdout)
+			if err := writeUsage(stdout); err != nil {
+				writeDiagnostic(stderr, "write help: %v", err)
+				return 1
+			}
 			return 0
 		case "--version":
-			fmt.Fprintf(stdout, "ghosttag %s\n", displayVersion())
+			if _, err := fmt.Fprintf(stdout, "ghosttag %s\n", displayVersion()); err != nil {
+				writeDiagnostic(stderr, "write version: %v", err)
+				return 1
+			}
 			return 0
 		}
 	}
 
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "ghosttag: expected exactly one JPEG or PNG file")
-		writeUsage(stderr)
+		if _, err := fmt.Fprintln(stderr, "ghosttag: expected exactly one JPEG or PNG file"); err != nil {
+			return 1
+		}
+		if err := writeUsage(stderr); err != nil {
+			return 1
+		}
 		return 2
 	}
 
 	result, err := inspect.File(args[0])
 	if err != nil {
-		fmt.Fprintf(stderr, "ghosttag: %v\n", err)
+		writeDiagnostic(stderr, "%v", err)
 		return 1
 	}
 
 	result.Assessment = assessment.Evaluate(result.Metadata)
 	if err := report.WriteText(stdout, result); err != nil {
-		fmt.Fprintf(stderr, "ghosttag: write report: %v\n", err)
+		writeDiagnostic(stderr, "write report: %v", err)
 		return 1
 	}
 
@@ -59,8 +71,32 @@ func displayVersion() string {
 	return info.Main.Version
 }
 
-func writeUsage(writer io.Writer) {
-	fmt.Fprintln(writer, "Usage: ghosttag <image.jpg|image.jpeg|image.png>")
-	fmt.Fprintln(writer, "       ghosttag --help")
-	fmt.Fprintln(writer, "       ghosttag --version")
+func writeUsage(writer io.Writer) error {
+	for _, line := range []string{
+		"Usage: ghosttag <image.jpg|image.jpeg|image.png>",
+		"       ghosttag --help",
+		"       ghosttag --version",
+	} {
+		if _, err := fmt.Fprintln(writer, line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeDiagnostic(writer io.Writer, format string, args ...any) {
+	message := sanitizeDiagnostic(fmt.Sprintf(format, args...))
+	_, _ = fmt.Fprintf(writer, "ghosttag: %s\n", message)
+}
+
+func sanitizeDiagnostic(value string) string {
+	var builder strings.Builder
+	for _, character := range value {
+		if unicode.IsControl(character) || unicode.In(character, unicode.Cf) {
+			builder.WriteByte(' ')
+			continue
+		}
+		builder.WriteRune(character)
+	}
+	return strings.Join(strings.Fields(builder.String()), " ")
 }
