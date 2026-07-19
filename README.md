@@ -1,11 +1,11 @@
 <h1 align="center">GHOSTTAG</h1>
 
 <p align="center">
-  <strong>Extract the metadata. Review the report.</strong>
+  <strong>Extract image metadata. Get a report.</strong>
 </p>
 
 <p align="center">
-  A read-only, offline CLI that extracts metadata from JPEG and PNG files and generates a report.
+  A read-only, offline CLI for extracting metadata from JPEG and PNG files.
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ---
 
-Extract embedded metadata from one JPEG or PNG file and receive a report with the detected format, dimensions, SHA-256 digest, supported metadata values, source containers, and privacy-relevant categories.
+Extract metadata from a JPEG or PNG file and generate a report with the results.
 
 Inspection stays local. The application does not upload the image, modify the file, analyze visual content, or crawl directories.
 
