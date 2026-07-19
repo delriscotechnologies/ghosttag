@@ -17,37 +17,38 @@ var pngSignature = []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
 // File inspects one JPEG or PNG without changing it.
 func File(path string) (model.Report, error) {
 	var result model.Report
+	displayPath := safeText(path)
 
 	file, err := openForInspection(path)
 	if err != nil {
-		return result, fmt.Errorf("open %q: %w", path, err)
+		return result, fmt.Errorf("open %q: %s", displayPath, safeText(err.Error()))
 	}
 	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
-		return result, fmt.Errorf("stat %q: %w", path, err)
+		return result, fmt.Errorf("stat %q: %s", displayPath, safeText(err.Error()))
 	}
 	if !info.Mode().IsRegular() {
-		return result, fmt.Errorf("%q is not a regular file; expected one JPEG or PNG file", path)
+		return result, fmt.Errorf("%q is not a regular file; expected one JPEG or PNG file", displayPath)
 	}
 	if info.Size() > maximumFileBytes {
-		return result, fmt.Errorf("%q exceeds the %d MiB safety limit", path, maximumFileBytes/(1024*1024))
+		return result, fmt.Errorf("%q exceeds the %d MiB safety limit", displayPath, maximumFileBytes/(1024*1024))
 	}
 
 	data, err := io.ReadAll(io.LimitReader(file, maximumFileBytes+1))
 	if err != nil {
-		return result, fmt.Errorf("read %q: %w", path, err)
+		return result, fmt.Errorf("read %q: %s", displayPath, safeText(err.Error()))
 	}
 	if int64(len(data)) > maximumFileBytes {
-		return result, fmt.Errorf("%q exceeds the %d MiB safety limit", path, maximumFileBytes/(1024*1024))
+		return result, fmt.Errorf("%q exceeds the %d MiB safety limit", displayPath, maximumFileBytes/(1024*1024))
 	}
 	afterInfo, err := file.Stat()
 	if err != nil {
-		return result, fmt.Errorf("stat %q after reading: %w", path, err)
+		return result, fmt.Errorf("stat %q after reading: %s", displayPath, safeText(err.Error()))
 	}
 	if info.Size() != afterInfo.Size() || !info.ModTime().Equal(afterInfo.ModTime()) {
-		return result, fmt.Errorf("%q changed while it was being read; inspect an unchanged copy", path)
+		return result, fmt.Errorf("%q changed while it was being read; inspect an unchanged copy", displayPath)
 	}
 
 	format, err := detectFormat(data)
