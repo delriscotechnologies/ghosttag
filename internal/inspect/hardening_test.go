@@ -36,7 +36,7 @@ func TestRejectsSymlink(t *testing.T) {
 	}
 	link := filepath.Join(directory, "link.png")
 	if err := os.Symlink(target, link); err != nil {
-		t.Fatal(err)
+		t.Skipf("symbolic links are unavailable: %v", err)
 	}
 	if _, err := File(link); err == nil || !strings.Contains(err.Error(), "regular file") {
 		t.Fatalf("expected regular-file error, got %v", err)
