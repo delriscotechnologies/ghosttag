@@ -2,18 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "ghosttag: bootstrap Go",
-      "type": "shell",
-      "command": "bash",
-      "args": ["./scripts/bootstrap-go.sh"],
-      "options": {"cwd": "${workspaceFolder}"},
-      "problemMatcher": []
-    },
-    {
       "label": "ghosttag: test",
       "type": "shell",
-      "command": "bash",
-      "args": ["./scripts/go-local.sh", "test", "./..."],
+      "command": "go",
+      "args": ["test", "./..."],
       "options": {"cwd": "${workspaceFolder}"},
       "group": {"kind": "test", "isDefault": true},
       "problemMatcher": ["$go"]
@@ -21,8 +13,8 @@
     {
       "label": "ghosttag: vet",
       "type": "shell",
-      "command": "bash",
-      "args": ["./scripts/go-local.sh", "vet", "./..."],
+      "command": "go",
+      "args": ["vet", "./..."],
       "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": ["$go"]
     },
@@ -30,7 +22,7 @@
       "label": "ghosttag: build Linux",
       "type": "shell",
       "command": "bash",
-      "args": ["-lc", "mkdir -p bin && CGO_ENABLED=0 GOOS=linux bash ./scripts/go-local.sh build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag"],
+      "args": ["-lc", "mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag"],
       "options": {"cwd": "${workspaceFolder}"},
       "group": {"kind": "build", "isDefault": true},
       "problemMatcher": ["$go"]
