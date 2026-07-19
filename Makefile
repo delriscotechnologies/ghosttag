@@ -1,4 +1,4 @@
-.PHONY: fmt test vet build install check clean
+.PHONY: fmt test vet build build-linux install check clean
 
 GO ?= go
 PREFIX ?= /usr/local
@@ -15,7 +15,11 @@ vet:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux $(GO) build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+	CGO_ENABLED=0 $(GO) build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+
+build-linux:
+	mkdir -p bin
+	CGO_ENABLED=0 GOOS=linux $(GO) build -buildvcs=false -trimpath -o ./bin/ghosttag-linux ./cmd/ghosttag
 
 install: build
 	install -d "$(DESTDIR)$(BINDIR)"
