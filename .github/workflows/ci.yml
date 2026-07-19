@@ -29,8 +29,17 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Test
-        run: go test ./...
+      - name: Test CLI
+        run: go test ./internal/cli
+
+      - name: Test inspector
+        run: go test ./internal/inspect
+
+      - name: Test report
+        run: go test ./internal/report
+
+      - name: Test remaining packages
+        run: go test ./internal/assessment ./internal/model ./cmd/ghosttag
 
       - name: Vet
         run: go vet ./...
