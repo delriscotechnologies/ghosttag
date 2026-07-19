@@ -1,0 +1,8 @@
+.cache/
+.tmp/*
+!.tmp/.gitkeep
+.tools/*
+!.tools/.gitkeep
+bin/
+coverage/
+dist/
