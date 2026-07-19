@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -29,11 +29,29 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - name: Build Linux binary
         env:
           CGO_ENABLED: "0"
           GOOS: linux
-          GOARCH: amd64
+          GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p bin
-          go build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+          go build -buildvcs=false -trimpath -o "./bin/ghosttag-linux-${GOARCH}" ./cmd/ghosttag
