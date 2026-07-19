@@ -49,10 +49,10 @@ func File(path string) (model.Report, error) {
 	}
 
 	digest := sha256.Sum256(data)
-	extension := strings.ToLower(filepath.Ext(path))
+	rawExtension := strings.ToLower(filepath.Ext(path))
 	result.File = model.FileInfo{
 		Name:           safeText(filepath.Base(path)),
-		Extension:      extension,
+		Extension:      safeText(rawExtension),
 		DetectedFormat: format,
 		Size:           int64(len(data)),
 		SHA256:         fmt.Sprintf("%x", digest),
@@ -69,11 +69,11 @@ func File(path string) (model.Report, error) {
 		return model.Report{}, err
 	}
 
-	if !extensionMatchesFormat(extension, format) {
-		result.Warnings = appendUnique(result.Warnings, fmt.Sprintf(
+	if !extensionMatchesFormat(rawExtension, format) {
+		collector.warn(
 			"The %s extension does not match the detected %s format.",
-			displayExtension(extension), format,
-		))
+			displayExtension(rawExtension), format,
+		)
 	}
 
 	return result, nil
@@ -101,6 +101,7 @@ func extensionMatchesFormat(extension, format string) bool {
 }
 
 func displayExtension(extension string) string {
+	extension = safeText(extension)
 	if extension == "" {
 		return "missing"
 	}
