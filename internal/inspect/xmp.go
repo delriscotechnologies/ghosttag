@@ -112,8 +112,12 @@ func flushXMPLocation(location xmpLocation, source string, collector *collector)
 	if location.latitude == "" && location.longitude == "" {
 		return
 	}
-	if location.latitude == "" || location.longitude == "" {
-		collector.warn("Ignored incomplete XMP GPS coordinates from %s.", source)
+	if location.latitude == "" {
+		collector.warn("Ignored incomplete XMP GPS coordinates from %s because latitude is missing.", source)
+		return
+	}
+	if location.longitude == "" {
+		collector.warn("Ignored incomplete XMP GPS coordinates from %s because longitude is missing.", source)
 		return
 	}
 	lat, err := parseXMPCoordinate(location.latitude, true)
