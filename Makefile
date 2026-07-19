@@ -16,6 +16,6 @@ vet:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+	CGO_ENABLED=0 GOOS=linux $(GO) build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag
 
 check: fmt test vet build
