@@ -1,19 +1,21 @@
-# GHOSTTAG
+<h1 align="center">GHOSTTAG</h1>
 
-Extract image metadata and generate a local report.
+<p align="center">
+  A read-only, offline tool that extracts metadata from JPEG and PNG files and generates a report.
+</p>
 
-**Read-only · Offline · JPEG and PNG · Linux**
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#the-report">Report</a> ·
+  <a href="#metadata-coverage">Metadata</a> ·
+  <a href="SECURITY.md">Security</a>
+</p>
 
-[Quick Start](#quick-start) · [Report](#the-report) · [Metadata](#metadata-coverage) · [Security](SECURITY.md)
+---
 
-Give it one JPEG or PNG file. It extracts supported metadata and reports the file details, metadata values, source containers, warnings, and privacy-relevant categories it finds.
+GHOSTTAG inspects one JPEG or PNG file and extracts supported EXIF, XMP, comment, and PNG text metadata into a terminal report.
 
-| | |
-| --- | --- |
-| **Input** | One JPEG or PNG file |
-| **Output** | A terminal report |
-| **Network access** | None during inspection |
-| **File changes** | None |
+Each run reports the file details, metadata values, source containers, warnings, and privacy-relevant categories it finds. It does not upload the image, modify the file, analyze visual content, or scan directories.
 
 ## Quick Start
 
