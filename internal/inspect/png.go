@@ -10,7 +10,11 @@ import (
 	"strings"
 )
 
-const maximumCompressedTextBytes = 1024 * 1024
+const (
+	maximumCompressedTextBytes = 1024 * 1024
+	maximumMetadataChunkBytes  = 8 * 1024 * 1024
+	maximumPNGChunks           = 10000
+)
 
 func parsePNG(data []byte, collector *collector) (int, int, error) {
 	if len(data) < len(pngSignature) || string(data[:len(pngSignature)]) != string(pngSignature) {
@@ -19,7 +23,12 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 
 	width, height := 0, 0
 	foundEnd := false
+	chunkCount := 0
 	for position := len(pngSignature); position < len(data); {
+		chunkCount++
+		if chunkCount > maximumPNGChunks {
+			return 0, 0, fmt.Errorf("malformed PNG: exceeds the %d-chunk safety limit", maximumPNGChunks)
+		}
 		if position+12 > len(data) {
 			return 0, 0, fmt.Errorf("malformed PNG: incomplete chunk at byte %d", position)
 		}
@@ -38,6 +47,15 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 		_, _ = checksum.Write(chunkData)
 		if checksum.Sum32() != expectedCRC {
 			collector.warn("PNG chunk %s has an invalid CRC.", safeText(chunkType))
+		}
+
+		if isPNGMetadataChunk(chunkType) && len(chunkData) > maximumMetadataChunkBytes {
+			collector.warn(
+				"Ignored PNG %s metadata larger than the %d MiB safety limit.",
+				safeText(chunkType), maximumMetadataChunkBytes/(1024*1024),
+			)
+			position = int(chunkEnd)
+			continue
 		}
 
 		switch chunkType {
@@ -93,6 +111,10 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 		return 0, 0, fmt.Errorf("malformed PNG: missing IEND")
 	}
 	return width, height, nil
+}
+
+func isPNGMetadataChunk(chunkType string) bool {
+	return chunkType == "eXIf" || chunkType == "tEXt" || chunkType == "zTXt" || chunkType == "iTXt"
 }
 
 func parseTextChunk(data []byte) (string, string, error) {
