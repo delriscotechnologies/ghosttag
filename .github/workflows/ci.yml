@@ -29,6 +29,11 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Install command
+        env:
+          GOBIN: ${{ runner.temp }}/ghosttag-bin
+        run: go install ./cmd/ghosttag
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10

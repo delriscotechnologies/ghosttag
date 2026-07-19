@@ -1,57 +1,49 @@
-<h1 align="center">ghosttag</h1>
+# GHOSTTAG
 
-<p align="center">
-  <strong>Image metadata, made visible before you share.</strong>
-</p>
+Extract image metadata and generate a local report.
 
-<p align="center">
-  A read-only, offline CLI that explains privacy-relevant metadata in JPEG and PNG files.
-</p>
+**Read-only · Offline · JPEG and PNG · Linux**
 
-<p align="center">
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#what-you-get">Output</a> ·
-  <a href="#notification-policy">Policy</a> ·
-  <a href="SECURITY.md">Security</a>
-</p>
+[Quick Start](#quick-start) · [Report](#the-report) · [Metadata](#metadata-coverage) · [Security](SECURITY.md)
 
----
+Give it one JPEG or PNG file. It extracts supported metadata and reports the file details, metadata values, source containers, warnings, and privacy-relevant categories it finds.
 
-`ghosttag` turns embedded image metadata into a compact, plain-English report. It identifies the file from its bytes, normalizes supported fields, and shows the context a recipient or platform may receive with the image.
-
-> [!NOTE]
-> `ghosttag` reports facts, not a risk score. Finding no supported metadata does not prove that an image is anonymous or safe to share.
+| | |
+| --- | --- |
+| **Input** | One JPEG or PNG file |
+| **Output** | A terminal report |
+| **Network access** | None during inspection |
+| **File changes** | None |
 
 ## Quick Start
 
-Clone the repository and build a Linux binary with the project-local Go toolchain:
+Go 1.26 or newer is required.
+
+Install the command:
 
 ```bash
-git clone https://github.com/delriscotechnologies/ghosttag.git
-cd ghosttag
-
-bash ./scripts/bootstrap-go.sh
-bash ./scripts/go-local.sh test ./...
-
-mkdir -p bin
-CGO_ENABLED=0 GOOS=linux \
-  bash ./scripts/go-local.sh build -buildvcs=false -trimpath \
-  -o ./bin/ghosttag ./cmd/ghosttag
+go install github.com/delriscotechnologies/ghosttag/cmd/ghosttag@latest
 ```
 
-The bootstrap script detects Linux AMD64 or ARM64, downloads the matching pinned official Go toolchain, verifies its published SHA-256 checksum, and recreates `.tools/go` from the verified archive. It does not install Go globally or trust a pre-existing ignored toolchain directory.
-
-To cross-compile explicitly, set `GOARCH=amd64` or `GOARCH=arm64` on the build command.
-
-Inspect one image:
+Make sure `GOBIN`, or `$(go env GOPATH)/bin` when `GOBIN` is unset, is included in your `PATH`. Then inspect an image:
 
 ```bash
-./bin/ghosttag /path/to/image.jpg
+ghosttag /path/to/image.jpg
 ```
 
-## What You Get
+## The Report
 
-Given a synthetic PNG containing three repository-controlled metadata categories, `ghosttag` produces:
+Every report is divided into four parts:
+
+| Section | Contents |
+| --- | --- |
+| **File** | Detected format, extension, size, dimensions, and SHA-256 |
+| **Metadata** | Extracted values and the container each value came from |
+| **Warnings** | Malformed data, extension mismatches, and safety-limit omissions |
+| **Privacy context** | Supported privacy categories found in the file |
+
+<details>
+<summary><strong>View an example report</strong></summary>
 
 ```text
 ghosttag — image metadata report
@@ -78,70 +70,85 @@ Privacy context
   Note: This file contains 3 privacy-relevant metadata categories: capture time, authorship, comments. In combination, these details can reveal more context than each detail alone. Consider whether they are appropriate for the intended recipient or platform.
 ```
 
-The report includes the detected format, size, dimensions, and SHA-256 digest. Metadata values include their source container so the output remains traceable.
+The example uses synthetic metadata stored in a repository-controlled test image.
+
+</details>
+
+## Metadata Coverage
+
+| Format | Supported containers |
+| --- | --- |
+| **JPEG** | APP1 EXIF, standard APP1 XMP, and COM comments |
+| **PNG** | eXIf, tEXt, zTXt, iTXt, and XMP stored as `XML:com.adobe.xmp` |
+
+Extracted values can include GPS location, capture time, device make and model, software, authorship, copyright information, comments, descriptions, captions, and orientation.
+
+Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstructed. Metadata can also be missing, malformed, stale, or intentionally misleading.
 
 ## How It Works
 
-1. Open exactly one regular file without modifying it.
-2. Reject symbolic links, special files, and files larger than 100 MiB.
-3. Detect JPEG or PNG from the file signature, not only its extension.
-4. Calculate the SHA-256 digest and read image dimensions.
-5. Parse supported EXIF, XMP, comment, and PNG text containers within explicit limits.
-6. Normalize duplicate or equivalent tags into plain-language facts.
-7. Group privacy-relevant facts into transparent categories.
-8. Print a terminal-safe text report.
+1. Opens one regular file without following symbolic links.
+2. Rejects directories, devices, FIFOs, other special files, and files larger than 100 MiB.
+3. Detects JPEG or PNG from the file signature instead of trusting the extension.
+4. Calculates the SHA-256 digest and reads the image dimensions.
+5. Parses supported metadata containers within explicit limits.
+6. Groups equivalent fields while retaining their source container.
+7. Neutralizes unsafe terminal characters and prints the report.
 
-## Supported Metadata
+The parser reads metadata containers only. It does not decode pixels, recognize visual subjects, or inspect faces.
 
-| Format | Containers and fields |
+## Privacy Context
+
+The report groups supported findings into five categories:
+
+| Category | Included findings |
 | --- | --- |
-| JPEG | APP1 EXIF, standard APP1 XMP, and COM comments |
-| PNG | eXIf, tEXt, zTXt, iTXt, and XMP in `XML:com.adobe.xmp` |
+| **Location** | Supported GPS coordinates |
+| **Capture time** | Original, digitized, or creation timestamps |
+| **Device** | Camera or capture-device make and model |
+| **Authorship** | Author, artist, owner, or copyright values |
+| **Comments** | Comments, descriptions, captions, or free-form notes |
 
-Normalized facts can include location, capture time, device, software, authorship, copyright, comments, descriptions, and orientation.
-
-## Notification Policy
-
-The privacy-context section counts normalized categories, not raw tags:
-
-| Categories found | Output behavior |
-| --- | --- |
-| 0 | State that no supported categories were found and clarify that this does not prove anonymity. |
-| 1–2 | List the categories and facts without an elevated notice. |
-| 3–5 | Add a gentle note that the combined details may reveal more context. |
-
-The five counted categories are location, capture time, device, authorship, and comments. Software and orientation remain visible but do not affect the count. Several tags describing the same category count once.
-
-The `3+` threshold controls product wording only. It is not a NIST metric, probability, severity level, or prediction of harm. The design follows NIST privacy guidance by separating observed data from contextual interpretation; see the [full notification policy](docs/notification-policy.md) for the definitions, rationale, and boundaries.
+The category count changes report wording only. Zero categories does not prove anonymity, and three or more categories does not represent a severity score, probability, or prediction of harm. See the [notification policy](docs/notification-policy.md) for the complete rules.
 
 ## Scope and Safeguards
 
-| Control | Behavior |
+| Boundary | Enforcement |
 | --- | --- |
-| Read-only | Never removes, rewrites, or otherwise changes the image. |
-| Offline inspection | Makes no network calls while analyzing a file. |
-| Regular-file only | Rejects symbolic links, FIFOs, devices, directories, and other special files. |
-| File-size limit | Rejects inputs larger than 100 MiB before parsing. |
-| Narrow scope | Accepts one JPEG or PNG file per execution; no recursive scans. |
-| Byte-based detection | Warns when the extension disagrees with the detected content. |
-| Terminal safety | Neutralizes control and Unicode format characters before printing embedded text. |
-| Bounded parsing | Limits PNG chunks, metadata chunk size, decompression, XMP nesting/tokens, warnings, and normalized values. |
-| Finite coordinates | Rejects `NaN`, infinity, and out-of-range GPS values. |
-| No visual inference | Does not inspect pixels, subjects, faces, or scene content. |
+| **File access** | Opens one regular file and never writes to it |
+| **Input size** | Rejects files larger than 100 MiB before parsing |
+| **Parsing** | Limits chunks, metadata size, decompression, XMP depth and tokens, warnings, and normalized values |
+| **Coordinates** | Rejects `NaN`, infinity, and out-of-range GPS values |
+| **Terminal output** | Replaces control and Unicode format characters and truncates long text values |
+| **Network** | Makes no network calls during inspection |
+| **Scope** | Accepts one JPEG or PNG per execution and does not scan directories |
 
-Metadata may be missing, malformed, stale, or intentionally misleading. Standard JPEG XMP is supported, but extended multi-segment XMP is not reconstructed in this version. Malformed files can still expose implementation defects, so inspect hostile files with minimum privileges and operating-system resource limits. See [SECURITY.md](SECURITY.md) for the trust boundary and reporting guidance.
+It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Inspect hostile files with minimum privileges and operating-system resource limits. See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
 
-## Development in VS Code
+## Install from Source
 
-The repository includes native Linux VS Code tasks. Open the `ghosttag` folder, run **Tasks: Run Task**, and choose:
+The repository uses the Go installation already available on the system. It does not download or maintain a separate toolchain.
 
-- `ghosttag: bootstrap Go`
-- `ghosttag: test`
-- `ghosttag: vet`
-- `ghosttag: build Linux`
+```bash
+git clone https://github.com/delriscotechnologies/ghosttag.git
+cd ghosttag
 
-All downloaded tools, caches, temporary files, and binaries stay inside the repository and are ignored by Git. The implementation uses only the Go standard library. CI tests the code and builds Linux AMD64 and ARM64 binaries. Additional design notes live in [`docs/`](docs/).
+go test ./...
+go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+sudo install -m 0755 ./bin/ghosttag /usr/local/bin/ghosttag
+```
+
+## Development
+
+```bash
+go fmt ./...
+go test ./...
+go vet ./...
+go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+```
+
+The same workflow is available through `make check`, `make build`, and `sudo make install`. CI tests the code, runs `go vet`, verifies standard Go installation, and builds Linux AMD64 and ARM64 binaries. The implementation uses only the Go standard library.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Available under the [MIT License](LICENSE).

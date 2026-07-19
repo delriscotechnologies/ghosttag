@@ -2,16 +2,5 @@
   "files.eol": "\n",
   "files.insertFinalNewline": true,
   "editor.formatOnSave": true,
-  "go.useLanguageServer": true,
-  "go.toolsEnvVars": {
-    "GOBIN": "${workspaceFolder}/.tools/bin",
-    "GOCACHE": "${workspaceFolder}/.cache/go-build",
-    "GOMODCACHE": "${workspaceFolder}/.cache/go-mod",
-    "GOTMPDIR": "${workspaceFolder}/.tmp",
-    "TMPDIR": "${workspaceFolder}/.tmp",
-    "TEMP": "${workspaceFolder}/.tmp",
-    "TMP": "${workspaceFolder}/.tmp",
-    "GOTELEMETRY": "off",
-    "GOTOOLCHAIN": "local"
-  }
+  "go.useLanguageServer": true
 }

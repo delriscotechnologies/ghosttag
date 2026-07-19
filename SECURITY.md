@@ -34,6 +34,4 @@ The tool is intentionally read-only and offline during inspection. It does not:
 - scan directories recursively; or
 - claim that an image is anonymous when no supported metadata is found.
 
-The project-local Go bootstrap verifies the official archive checksum and recreates the ignored `.tools/go` directory from that archive instead of executing an existing unverified toolchain.
-
 Malformed files may still expose implementation defects. Run `ghosttag` with minimum permissions and operating-system resource limits, and do not rely on it as the sole control for handling hostile files.

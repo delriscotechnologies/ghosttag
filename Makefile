@@ -1,9 +1,8 @@
-.PHONY: bootstrap fmt test vet build check
+.PHONY: fmt test vet build install check clean
 
-GO := bash ./scripts/go-local.sh
-
-bootstrap:
-	bash ./scripts/bootstrap-go.sh
+GO ?= go
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
 
 fmt:
 	$(GO) fmt ./...
@@ -18,4 +17,11 @@ build:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux $(GO) build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag
 
-check: fmt test vet build
+install: build
+	install -d "$(DESTDIR)$(BINDIR)"
+	install -m 0755 ./bin/ghosttag "$(DESTDIR)$(BINDIR)/ghosttag"
+
+check: test vet build
+
+clean:
+	rm -rf bin
