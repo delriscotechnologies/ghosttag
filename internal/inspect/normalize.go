@@ -2,6 +2,7 @@ package inspect
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 	"unicode"
@@ -9,11 +10,18 @@ import (
 	"github.com/delriscotechnologies/ghosttag/internal/model"
 )
 
-const maximumDisplayRunes = 500
+const (
+	maximumDisplayRunes   = 500
+	maximumMetadataValues = 256
+	maximumWarnings       = 100
+)
 
 type collector struct {
-	metadata *model.Metadata
-	warnings *[]string
+	metadata          *model.Metadata
+	warnings          *[]string
+	valuesAdded       int
+	valueLimitNoted   bool
+	warningLimitNoted bool
 }
 
 func newCollector(metadata *model.Metadata, warnings *[]string) *collector {
@@ -25,7 +33,25 @@ func (c *collector) addContainer(container string) {
 }
 
 func (c *collector) warn(format string, args ...any) {
-	*c.warnings = appendUnique(*c.warnings, fmt.Sprintf(format, args...))
+	if c.warningLimitNoted {
+		return
+	}
+	if len(*c.warnings) >= maximumWarnings-1 {
+		*c.warnings = appendUnique(*c.warnings, "Additional parser warnings were omitted after the safety limit was reached.")
+		c.warningLimitNoted = true
+		return
+	}
+	warning := safeText(fmt.Sprintf(format, args...))
+	if warning != "" {
+		*c.warnings = appendUnique(*c.warnings, warning)
+	}
+}
+
+func (c *collector) noteValueLimit() {
+	if !c.valueLimitNoted {
+		c.valueLimitNoted = true
+		c.warn("Additional metadata values were omitted after the %d-value safety limit was reached.", maximumMetadataValues)
+	}
 }
 
 func (c *collector) addValue(values *[]model.SourcedValue, value, source string) {
@@ -38,7 +64,12 @@ func (c *collector) addValue(values *[]model.SourcedValue, value, source string)
 			return
 		}
 	}
-	*values = append(*values, model.SourcedValue{Value: value, Source: source})
+	if c.valuesAdded >= maximumMetadataValues {
+		c.noteValueLimit()
+		return
+	}
+	*values = append(*values, model.SourcedValue{Value: value, Source: safeText(source)})
+	c.valuesAdded++
 }
 
 func (c *collector) addCaptureTime(value, source string) {
@@ -46,8 +77,9 @@ func (c *collector) addCaptureTime(value, source string) {
 }
 
 func (c *collector) addLocation(latitude, longitude float64, source string) {
-	if latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 {
-		c.warn("Ignored an out-of-range GPS coordinate from %s.", source)
+	if math.IsNaN(latitude) || math.IsNaN(longitude) || math.IsInf(latitude, 0) || math.IsInf(longitude, 0) ||
+		latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 {
+		c.warn("Ignored an invalid or out-of-range GPS coordinate from %s.", source)
 		return
 	}
 	for _, existing := range c.metadata.Locations {
@@ -55,15 +87,20 @@ func (c *collector) addLocation(latitude, longitude float64, source string) {
 			return
 		}
 	}
+	if c.valuesAdded >= maximumMetadataValues {
+		c.noteValueLimit()
+		return
+	}
 	c.metadata.Locations = append(c.metadata.Locations, model.Location{
-		Latitude: latitude, Longitude: longitude, Source: source,
+		Latitude: latitude, Longitude: longitude, Source: safeText(source),
 	})
+	c.valuesAdded++
 }
 
 func safeText(value string) string {
 	var builder strings.Builder
 	for _, character := range value {
-		if unicode.IsControl(character) {
+		if unicode.IsControl(character) || unicode.In(character, unicode.Cf) {
 			builder.WriteByte(' ')
 			continue
 		}

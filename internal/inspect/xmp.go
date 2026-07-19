@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+const (
+	maximumXMPDepth  = 128
+	maximumXMPTokens = 100000
+)
+
 type xmpFrame struct {
 	name string
 	text strings.Builder
@@ -19,6 +24,7 @@ func parseXMP(data []byte, source string, collector *collector) error {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	stack := make([]xmpFrame, 0, 8)
 	latitude, longitude := "", ""
+	tokenCount := 0
 
 	for {
 		token, err := decoder.Token()
@@ -28,9 +34,16 @@ func parseXMP(data []byte, source string, collector *collector) error {
 		if err != nil {
 			return err
 		}
+		tokenCount++
+		if tokenCount > maximumXMPTokens {
+			return fmt.Errorf("XMP exceeds the %d-token safety limit", maximumXMPTokens)
+		}
 
 		switch value := token.(type) {
 		case xml.StartElement:
+			if len(stack) >= maximumXMPDepth {
+				return fmt.Errorf("XMP exceeds the %d-level nesting safety limit", maximumXMPDepth)
+			}
 			stack = append(stack, xmpFrame{name: strings.ToLower(value.Name.Local)})
 			for _, attribute := range value.Attr {
 				text := safeText(attribute.Value)
@@ -153,7 +166,7 @@ func parseXMPCoordinate(value string, latitude bool) (float64, error) {
 	numbers := make([]float64, len(parts))
 	for index, part := range parts {
 		parsed, err := strconv.ParseFloat(part, 64)
-		if err != nil {
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
 			return 0, fmt.Errorf("invalid coordinate %q", safeText(value))
 		}
 		numbers[index] = parsed
@@ -174,7 +187,7 @@ func parseXMPCoordinate(value string, latitude bool) (float64, error) {
 	if latitude {
 		limit = 90
 	}
-	if coordinate < -limit || coordinate > limit {
+	if math.IsNaN(coordinate) || math.IsInf(coordinate, 0) || coordinate < -limit || coordinate > limit {
 		return 0, fmt.Errorf("coordinate is out of range")
 	}
 	return coordinate, nil

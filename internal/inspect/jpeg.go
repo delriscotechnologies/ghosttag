@@ -74,6 +74,9 @@ func parseJPEG(data []byte, collector *collector) (int, int, error) {
 		}
 	}
 
+	if width == 0 || height == 0 {
+		return 0, 0, fmt.Errorf("malformed JPEG: missing or invalid start-of-frame dimensions")
+	}
 	return width, height, nil
 }
 
