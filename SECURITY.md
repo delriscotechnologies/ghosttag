@@ -14,23 +14,24 @@ For non-sensitive hardening suggestions, open a regular GitHub issue with the sm
 
 ## Security Boundary
 
-`ghosttag` treats image metadata as untrusted input. The inspector:
+`ghosttag` treats image metadata and file names as untrusted input. The inspector:
 
-- opens only regular files and rejects symbolic links and Linux special files;
+- opens only stable regular files and rejects symbolic-link inputs;
+- uses atomic no-follow opening on Linux and verifies opened-file identity on other supported platforms;
 - rejects files larger than 100 MiB;
-- validates JPEG and PNG container structure and dimensions;
+- validates the JPEG and PNG container structure needed to locate supported metadata and dimensions;
 - limits PNG chunk counts and metadata chunk sizes;
 - limits decompression of compressed PNG text;
 - limits XMP nesting depth and token count;
 - limits normalized metadata values and parser warnings;
 - rejects non-finite and out-of-range GPS coordinates; and
-- neutralizes terminal control and Unicode format characters before output.
+- neutralizes terminal control and Unicode format characters in reported file names, extensions, metadata, sources, and warnings.
 
-The tool is intentionally read-only and offline during inspection. It does not:
+The parser is not a complete JPEG or PNG decoder. The tool is intentionally read-only and offline during inspection. It does not:
 
 - modify or remove metadata;
 - upload images or reports;
-- inspect image pixels or visual subjects;
+- decode image pixels or inspect visual subjects;
 - scan directories recursively; or
 - claim that an image is anonymous when no supported metadata is found.
 

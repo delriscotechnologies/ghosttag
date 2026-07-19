@@ -58,6 +58,33 @@ func TestSafeTextRemovesFormatControls(t *testing.T) {
 	}
 }
 
+func TestSanitizesExtensionAndMismatchWarning(t *testing.T) {
+	data := append([]byte{}, pngSignature...)
+	ihdr := make([]byte, 13)
+	binary.BigEndian.PutUint32(ihdr[0:4], 1)
+	binary.BigEndian.PutUint32(ihdr[4:8], 1)
+	data = append(data, testChunk("IHDR", ihdr)...)
+	data = append(data, testChunk("IEND", nil)...)
+
+	path := filepath.Join(t.TempDir(), "image.\x1b[31mjpg\u202E")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Skipf("platform does not permit the unsafe test filename: %v", err)
+	}
+	result, err := File(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := append([]string{result.File.Name, result.File.Extension}, result.Warnings...)
+	for _, value := range values {
+		if strings.ContainsRune(value, '\x1b') || strings.ContainsRune(value, '\u202E') {
+			t.Fatalf("unsafe terminal character survived in %q", value)
+		}
+	}
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], "does not match") {
+		t.Fatalf("expected sanitized extension mismatch warning, got %v", result.Warnings)
+	}
+}
+
 func TestCollectorLimitsValues(t *testing.T) {
 	var metadata model.Metadata
 	var warnings []string

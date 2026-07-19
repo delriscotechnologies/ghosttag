@@ -44,13 +44,13 @@ sudo install -m 0755 ./bin/ghosttag /usr/local/bin/ghosttag
 
 ## The Report
 
-Every report is divided into four parts:
+Every report includes three core sections. A **Warnings** section is added only when malformed data, an extension mismatch, or a safety limit needs to be reported.
 
 | Section | Contents |
 | --- | --- |
 | **File** | Detected format, extension, size, dimensions, and SHA-256 |
 | **Metadata** | Extracted values and the container each value came from |
-| **Warnings** | Malformed data, extension mismatches, and safety-limit omissions |
+| **Warnings** | Present only when warnings were generated |
 | **Privacy context** | Supported privacy categories found in the file |
 
 <details>
@@ -81,7 +81,7 @@ Privacy context
   Note: This file contains 3 privacy-relevant metadata categories: capture time, authorship, comments. In combination, these details can reveal more context than each detail alone. Consider whether they are appropriate for the intended recipient or platform.
 ```
 
-The example uses synthetic metadata stored in a repository-controlled test image.
+The example is generated from repository-controlled synthetic report data and checked by an automated test.
 
 </details>
 
@@ -98,7 +98,7 @@ Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstru
 
 ## How It Works
 
-1. Opens one regular file without following symbolic links.
+1. Opens one stable regular file, rejects symbolic-link inputs, and verifies the opened file identity where atomic no-follow support is unavailable.
 2. Rejects directories, devices, FIFOs, other special files, and files larger than 100 MiB.
 3. Detects JPEG or PNG from the file signature instead of trusting the extension.
 4. Calculates the SHA-256 digest and reads the image dimensions.
@@ -106,7 +106,7 @@ Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstru
 6. Groups equivalent fields while retaining their source container.
 7. Neutralizes unsafe terminal characters and prints the report.
 
-The parser reads metadata containers only. It does not decode pixels, recognize visual subjects, or inspect faces.
+The parser validates only the container structure needed to locate supported metadata and dimensions. It is not a full image decoder and does not inspect pixels, recognize visual subjects, or inspect faces.
 
 ## Privacy Context
 
@@ -126,7 +126,7 @@ The category count changes report wording only. Zero categories does not prove a
 
 | Boundary | Enforcement |
 | --- | --- |
-| **File access** | Opens one regular file and never writes to it |
+| **File access** | Rejects symbolic-link inputs, verifies a stable regular file, and never writes to it |
 | **Input size** | Rejects files larger than 100 MiB before parsing |
 | **Parsing** | Limits chunks, metadata size, decompression, XMP depth and tokens, warnings, and normalized values |
 | **Coordinates** | Rejects `NaN`, infinity, and out-of-range GPS values |

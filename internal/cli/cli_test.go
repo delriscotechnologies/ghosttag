@@ -28,3 +28,20 @@ func TestRunHelp(t *testing.T) {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
 	}
 }
+
+func TestRunVersionUsesBuildOverride(t *testing.T) {
+	previous := Version
+	Version = "v1.2.3"
+	t.Cleanup(func() { Version = previous })
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--version"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if stdout.String() != "ghosttag v1.2.3\n" {
+		t.Fatalf("unexpected version output: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
