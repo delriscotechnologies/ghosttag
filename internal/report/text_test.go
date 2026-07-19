@@ -2,6 +2,7 @@ package report
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -44,4 +45,31 @@ func TestWriteTextUsesContextWithoutSeverity(t *testing.T) {
 			t.Fatalf("report contains forbidden severity wording %q:\n%s", forbidden, text)
 		}
 	}
+}
+
+func TestWriteTextReturnsLateWriterErrors(t *testing.T) {
+	writer := &failAfterWriter{remaining: 40}
+	result := model.Report{File: model.FileInfo{Name: "sample.png", DetectedFormat: "PNG"}}
+	if err := WriteText(writer, result); !errors.Is(err, errWriterFailed) {
+		t.Fatalf("WriteText error = %v, want %v", err, errWriterFailed)
+	}
+}
+
+var errWriterFailed = errors.New("writer failed")
+
+type failAfterWriter struct {
+	remaining int
+}
+
+func (writer *failAfterWriter) Write(data []byte) (int, error) {
+	if writer.remaining <= 0 {
+		return 0, errWriterFailed
+	}
+	if len(data) > writer.remaining {
+		written := writer.remaining
+		writer.remaining = 0
+		return written, errWriterFailed
+	}
+	writer.remaining -= len(data)
+	return len(data), nil
 }
