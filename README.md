@@ -89,12 +89,12 @@ The example is generated from repository-controlled synthetic report data and ch
 
 | Format | Supported containers |
 | --- | --- |
-| **JPEG** | APP1 EXIF, standard APP1 XMP, and COM comments |
-| **PNG** | eXIf, tEXt, zTXt, iTXt, and XMP stored as `XML:com.adobe.xmp` |
+| **JPEG** | APP1 EXIF, standard namespace-aware APP1 XMP, and COM comments across supported scans |
+| **PNG** | eXIf, tEXt, zTXt, iTXt, and namespace-aware XMP stored as `XML:com.adobe.xmp` |
 
-Extracted values can include GPS location, capture time, device make and model, software, authorship, copyright information, comments, descriptions, captions, and orientation.
+Extracted values can include GPS location, validated capture time, device make and model, software, authorship, copyright information, comments, descriptions, captions, and orientation.
 
-Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstructed. Metadata can also be missing, malformed, stale, or intentionally misleading.
+Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstructed. Metadata can also be missing, malformed, stale, or intentionally misleading. Values using unknown XMP namespaces are ignored rather than treated as standard properties.
 
 ## How It Works
 
@@ -102,10 +102,12 @@ Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstru
 2. Rejects directories, devices, FIFOs, other special files, files larger than 100 MiB, and files whose size or modification time changes during reading.
 3. Detects JPEG or PNG from the file signature instead of trusting the extension.
 4. Calculates the SHA-256 digest and reads validated image dimensions.
-5. Parses supported metadata containers within explicit per-field and parser limits.
-6. Groups equivalent fields while retaining every distinct source container.
-7. Validates GPS directions and degree, minute, and second components.
-8. Neutralizes unsafe terminal characters and prints the report.
+5. Bounds JPEG marker traversal, validates complete frame headers, and continues safely across multiple scans.
+6. Requires valid CRCs for critical PNG chunks and ignores ancillary chunks whose CRC is invalid.
+7. Parses supported metadata containers within explicit per-field and parser limits.
+8. Groups equivalent fields while retaining every distinct source container.
+9. Validates capture times and GPS directions and components before assigning privacy categories.
+10. Neutralizes unsafe terminal characters in reports and diagnostics.
 
 The parser validates only the container structure needed to locate supported metadata and dimensions. It is not a full image decoder and does not inspect pixels, recognize visual subjects, or inspect faces.
 
@@ -116,7 +118,7 @@ The report groups supported findings into five categories:
 | Category | Included findings |
 | --- | --- |
 | **Location** | Supported GPS coordinates |
-| **Capture time** | Original, digitized, or creation timestamps |
+| **Capture time** | Validated original, digitized, or creation timestamps |
 | **Device** | Camera or capture-device make and model |
 | **Authorship** | Author, artist, owner, or copyright values |
 | **Comments** | Comments, descriptions, captions, or free-form notes |
@@ -129,9 +131,10 @@ The category count changes report wording only. Zero categories does not prove a
 | --- | --- |
 | **File access** | Rejects symbolic-link inputs, verifies opened-file identity, detects common concurrent changes, and never writes to the file |
 | **Input size** | Rejects files larger than 100 MiB before parsing |
-| **Parsing** | Limits chunks, metadata size, decompression, XMP depth and tokens, warnings, locations, and values per metadata field |
-| **Coordinates** | Validates GPS direction and components and rejects `NaN`, infinity, and out-of-range values |
-| **Terminal output** | Replaces control and Unicode format characters and truncates long text values |
+| **Parsing** | Limits JPEG markers, PNG chunks, metadata size, decompression, XMP depth and tokens, warnings, locations, and values per metadata field |
+| **Integrity** | Validates JPEG frame headers, enforces PNG critical CRCs, skips invalid ancillary chunks, and keeps XMP GPS pairs within their descriptions |
+| **Coordinates and time** | Validates GPS direction and components and accepts only recognized capture-time formats |
+| **Terminal output** | Replaces control and Unicode format characters and truncates long text values in reports and diagnostics |
 | **Network** | Makes no network calls during inspection |
 | **Scope** | Accepts one JPEG or PNG per execution and does not scan directories |
 

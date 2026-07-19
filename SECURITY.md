@@ -14,27 +14,29 @@ For non-sensitive hardening suggestions, open a regular GitHub issue with the sm
 
 ## Security Boundary
 
-`ghosttag` treats image metadata and file names as untrusted input. The inspector:
+`ghosttag` treats image metadata, file names, paths, and parser diagnostics as untrusted input. The inspector:
 
 - opens only regular files and rejects symbolic-link inputs;
 - uses atomic no-follow opening on Linux and verifies opened-file identity on other supported platforms;
 - rejects files larger than 100 MiB and rejects common concurrent changes detected through size or modification-time differences;
 - validates the JPEG and PNG container structure needed to locate supported metadata and dimensions;
-- requires a first, unique PNG `IHDR`, validates PNG dimensions, and rejects data after `IEND`;
-- limits PNG chunk counts and metadata chunk sizes;
-- limits decompression of compressed PNG text;
-- limits XMP nesting depth and token count;
+- bounds JPEG marker traversal, validates complete start-of-frame headers, and resumes marker parsing after scan data;
+- requires a first, unique PNG `IHDR`, validates dimensions and critical-chunk CRCs, ignores ancillary chunks with invalid CRCs, and rejects data after `IEND`;
+- limits PNG chunk counts, metadata chunk sizes, and decompression of compressed PNG text;
+- limits XMP nesting depth and token count and accepts supported properties only from recognized namespaces;
+- keeps XMP GPS latitude and longitude values within the same RDF description instead of combining unrelated blocks;
 - limits normalized values independently for each metadata field, locations, and parser warnings;
-- validates GPS direction and degree, minute, and second components before reporting coordinates;
+- validates capture-time formats and GPS direction and degree, minute, and second components before classification;
 - retains distinct source containers when equivalent values occur in multiple containers; and
-- neutralizes terminal control and Unicode format characters in reported file names, extensions, metadata, sources, and warnings.
+- neutralizes terminal control and Unicode format characters in reported values and CLI diagnostics.
 
 The parser is not a complete JPEG or PNG decoder. The tool is intentionally read-only and offline during inspection. It does not:
 
 - modify or remove metadata;
 - upload images or reports;
 - decode image pixels or inspect visual subjects;
-- scan directories recursively; or
+- scan directories recursively;
+- treat unknown XMP namespaces as standard metadata properties; or
 - claim that an image is anonymous when no supported metadata is found.
 
 Malformed files may still expose implementation defects. A concurrent writer may also attempt changes that preserve observable file attributes. Inspect an unchanged copy with minimum permissions and operating-system resource limits, and do not rely on `ghosttag` as the sole control for handling hostile files.

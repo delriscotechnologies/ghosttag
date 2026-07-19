@@ -1,6 +1,7 @@
 package inspect
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"strings"
@@ -11,6 +12,8 @@ const (
 	jpegCOM  = 0xfe
 	jpegSOS  = 0xda
 	jpegEOI  = 0xd9
+
+	maximumJPEGMarkers = 100000
 )
 
 var (
@@ -24,7 +27,13 @@ func parseJPEG(data []byte, collector *collector) (int, int, error) {
 	}
 
 	width, height := 0, 0
+	foundEnd := false
+	markerCount := 0
 	for position := 2; position < len(data); {
+		markerCount++
+		if markerCount > maximumJPEGMarkers {
+			return 0, 0, fmt.Errorf("malformed JPEG: exceeds the %d-marker safety limit", maximumJPEGMarkers)
+		}
 		if data[position] != 0xff {
 			return 0, 0, fmt.Errorf("malformed JPEG: expected a marker at byte %d", position)
 		}
@@ -37,7 +46,11 @@ func parseJPEG(data []byte, collector *collector) (int, int, error) {
 
 		marker := data[position]
 		position++
-		if marker == jpegSOS || marker == jpegEOI {
+		if marker == 0x00 {
+			return 0, 0, fmt.Errorf("malformed JPEG: unexpected stuffed byte outside scan data")
+		}
+		if marker == jpegEOI {
+			foundEnd = true
 			break
 		}
 		if marker == 0x01 || marker >= 0xd0 && marker <= 0xd7 {
@@ -68,16 +81,71 @@ func parseJPEG(data []byte, collector *collector) (int, int, error) {
 		case marker == jpegCOM:
 			collector.addContainer("JPEG COM")
 			collector.addValue(&collector.metadata.Comments, string(payload), "JPEG COM")
-		case isStartOfFrame(marker) && len(payload) >= 5:
-			height = int(binary.BigEndian.Uint16(payload[1:3]))
-			width = int(binary.BigEndian.Uint16(payload[3:5]))
+		case isStartOfFrame(marker):
+			frameWidth, frameHeight, err := parseJPEGFrameHeader(payload)
+			if err != nil {
+				return 0, 0, err
+			}
+			width, height = frameWidth, frameHeight
+		}
+
+		if marker == jpegSOS {
+			var err error
+			position, err = skipJPEGScan(data, position)
+			if err != nil {
+				return 0, 0, err
+			}
 		}
 	}
 
+	if !foundEnd {
+		return 0, 0, fmt.Errorf("malformed JPEG: missing end-of-image marker")
+	}
 	if width == 0 || height == 0 {
 		return 0, 0, fmt.Errorf("malformed JPEG: missing or invalid start-of-frame dimensions")
 	}
 	return width, height, nil
+}
+
+func parseJPEGFrameHeader(payload []byte) (int, int, error) {
+	if len(payload) < 6 {
+		return 0, 0, fmt.Errorf("malformed JPEG: incomplete start-of-frame header")
+	}
+	precision := payload[0]
+	height := int(binary.BigEndian.Uint16(payload[1:3]))
+	width := int(binary.BigEndian.Uint16(payload[3:5]))
+	components := int(payload[5])
+	if precision == 0 || width == 0 || height == 0 || components == 0 {
+		return 0, 0, fmt.Errorf("malformed JPEG: invalid start-of-frame values")
+	}
+	if len(payload) != 6+3*components {
+		return 0, 0, fmt.Errorf("malformed JPEG: incomplete start-of-frame component table")
+	}
+	return width, height, nil
+}
+
+func skipJPEGScan(data []byte, position int) (int, error) {
+	for position < len(data) {
+		relative := bytes.IndexByte(data[position:], 0xff)
+		if relative < 0 {
+			return 0, fmt.Errorf("malformed JPEG: scan data reaches end of file")
+		}
+		markerStart := position + relative
+		next := markerStart + 1
+		for next < len(data) && data[next] == 0xff {
+			next++
+		}
+		if next >= len(data) {
+			return 0, fmt.Errorf("malformed JPEG: incomplete marker after scan data")
+		}
+		marker := data[next]
+		if marker == 0x00 || marker >= 0xd0 && marker <= 0xd7 {
+			position = next + 1
+			continue
+		}
+		return markerStart, nil
+	}
+	return 0, fmt.Errorf("malformed JPEG: scan data reaches end of file")
 }
 
 func isStartOfFrame(marker byte) bool {

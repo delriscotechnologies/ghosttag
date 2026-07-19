@@ -13,17 +13,32 @@ import (
 const (
 	maximumXMPDepth  = 128
 	maximumXMPTokens = 100000
+
+	rdfNamespace       = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	dcNamespace        = "http://purl.org/dc/elements/1.1/"
+	xmpNamespace       = "http://ns.adobe.com/xap/1.0/"
+	tiffNamespace      = "http://ns.adobe.com/tiff/1.0/"
+	exifNamespace      = "http://ns.adobe.com/exif/1.0/"
+	exifEXNamespace    = "http://cipa.jp/exif/1.0/"
+	photoshopNamespace = "http://ns.adobe.com/photoshop/1.0/"
 )
 
 type xmpFrame struct {
-	name string
-	text strings.Builder
+	kind        string
+	text        strings.Builder
+	description bool
+}
+
+type xmpLocation struct {
+	latitude  string
+	longitude string
 }
 
 func parseXMP(data []byte, source string, collector *collector) error {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	stack := make([]xmpFrame, 0, 8)
-	latitude, longitude := "", ""
+	locations := make([]xmpLocation, 0, 2)
+	var rootLocation xmpLocation
 	tokenCount := 0
 
 	for {
@@ -44,32 +59,17 @@ func parseXMP(data []byte, source string, collector *collector) error {
 			if len(stack) >= maximumXMPDepth {
 				return fmt.Errorf("XMP exceeds the %d-level nesting safety limit", maximumXMPDepth)
 			}
-			stack = append(stack, xmpFrame{name: strings.ToLower(value.Name.Local)})
+			isDescription := value.Name.Space == rdfNamespace && value.Name.Local == "Description"
+			if isDescription {
+				locations = append(locations, xmpLocation{})
+			}
+			stack = append(stack, xmpFrame{kind: xmpPropertyKind(value.Name), description: isDescription})
 			for _, attribute := range value.Attr {
 				text := safeText(attribute.Value)
 				if text == "" {
 					continue
 				}
-				switch strings.ToLower(attribute.Name.Local) {
-				case "createdate", "datetimeoriginal", "datecreated":
-					collector.addCaptureTime(text, source)
-				case "make":
-					collector.addValue(&collector.metadata.DeviceMake, text, source)
-				case "model":
-					collector.addValue(&collector.metadata.DeviceModel, text, source)
-				case "creatortool", "software":
-					collector.addValue(&collector.metadata.Software, text, source)
-				case "artist", "author", "creator":
-					collector.addValue(&collector.metadata.Authors, text, source)
-				case "copyright", "rights":
-					collector.addValue(&collector.metadata.Copyright, text, source)
-				case "comment", "caption", "description":
-					collector.addValue(&collector.metadata.Comments, text, source)
-				case "gpslatitude":
-					latitude = text
-				case "gpslongitude":
-					longitude = text
-				}
+				processXMPValue(xmpPropertyKind(attribute.Name), text, source, collector, currentXMPLocation(locations, &rootLocation))
 			}
 		case xml.CharData:
 			if len(stack) > 0 {
@@ -82,63 +82,134 @@ func parseXMP(data []byte, source string, collector *collector) error {
 			frame := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
 			text := safeText(frame.text.String())
-			if text == "" {
-				continue
-			}
-
-			switch frame.name {
-			case "createdate", "datetimeoriginal", "datecreated":
-				collector.addCaptureTime(text, source)
-			case "make":
-				collector.addValue(&collector.metadata.DeviceMake, text, source)
-			case "model":
-				collector.addValue(&collector.metadata.DeviceModel, text, source)
-			case "creatortool", "software":
-				collector.addValue(&collector.metadata.Software, text, source)
-			case "artist", "author", "creator":
-				collector.addValue(&collector.metadata.Authors, text, source)
-			case "copyright", "rights":
-				collector.addValue(&collector.metadata.Copyright, text, source)
-			case "comment", "caption", "description":
-				collector.addValue(&collector.metadata.Comments, text, source)
-			case "gpslatitude":
-				latitude = text
-			case "gpslongitude":
-				longitude = text
-			case "li":
-				switch nearestXMPMeaning(stack) {
-				case "creator":
-					collector.addValue(&collector.metadata.Authors, text, source)
-				case "rights":
-					collector.addValue(&collector.metadata.Copyright, text, source)
-				case "description":
-					collector.addValue(&collector.metadata.Comments, text, source)
+			if text != "" {
+				kind := frame.kind
+				if kind == "li" {
+					kind = nearestXMPMeaning(stack)
 				}
+				processXMPValue(kind, text, source, collector, currentXMPLocation(locations, &rootLocation))
+			}
+			if frame.description {
+				location := locations[len(locations)-1]
+				locations = locations[:len(locations)-1]
+				flushXMPLocation(location, source, collector)
 			}
 		}
 	}
 
-	if latitude != "" && longitude != "" {
-		lat, err := parseXMPCoordinate(latitude, true)
-		if err != nil {
-			collector.warn("Could not normalize XMP GPS latitude: %v", err)
-			return nil
-		}
-		lon, err := parseXMPCoordinate(longitude, false)
-		if err != nil {
-			collector.warn("Could not normalize XMP GPS longitude: %v", err)
-			return nil
-		}
-		collector.addLocation(lat, lon, source)
-	}
+	flushXMPLocation(rootLocation, source, collector)
 	return nil
+}
+
+func currentXMPLocation(locations []xmpLocation, root *xmpLocation) *xmpLocation {
+	if len(locations) == 0 {
+		return root
+	}
+	return &locations[len(locations)-1]
+}
+
+func flushXMPLocation(location xmpLocation, source string, collector *collector) {
+	if location.latitude == "" && location.longitude == "" {
+		return
+	}
+	if location.latitude == "" {
+		collector.warn("Ignored incomplete XMP GPS coordinates from %s because latitude is missing.", source)
+		return
+	}
+	if location.longitude == "" {
+		collector.warn("Ignored incomplete XMP GPS coordinates from %s because longitude is missing.", source)
+		return
+	}
+	lat, err := parseXMPCoordinate(location.latitude, true)
+	if err != nil {
+		collector.warn("Could not normalize XMP GPS latitude: %v", err)
+		return
+	}
+	lon, err := parseXMPCoordinate(location.longitude, false)
+	if err != nil {
+		collector.warn("Could not normalize XMP GPS longitude: %v", err)
+		return
+	}
+	collector.addLocation(lat, lon, source)
+}
+
+func processXMPValue(kind, text, source string, collector *collector, location *xmpLocation) {
+	switch kind {
+	case "capture-time":
+		collector.addCaptureTime(text, source)
+	case "make":
+		collector.addValue(&collector.metadata.DeviceMake, text, source)
+	case "model":
+		collector.addValue(&collector.metadata.DeviceModel, text, source)
+	case "software":
+		collector.addValue(&collector.metadata.Software, text, source)
+	case "author":
+		collector.addValue(&collector.metadata.Authors, text, source)
+	case "copyright":
+		collector.addValue(&collector.metadata.Copyright, text, source)
+	case "comment":
+		collector.addValue(&collector.metadata.Comments, text, source)
+	case "gps-latitude":
+		location.latitude = text
+	case "gps-longitude":
+		location.longitude = text
+	}
+}
+
+func xmpPropertyKind(name xml.Name) string {
+	local := strings.ToLower(name.Local)
+	switch name.Space {
+	case xmpNamespace:
+		switch local {
+		case "createdate":
+			return "capture-time"
+		case "creatortool":
+			return "software"
+		}
+	case photoshopNamespace:
+		if local == "datecreated" {
+			return "capture-time"
+		}
+	case tiffNamespace:
+		switch local {
+		case "make":
+			return "make"
+		case "model":
+			return "model"
+		case "software":
+			return "software"
+		}
+	case exifNamespace, exifEXNamespace:
+		switch local {
+		case "datetimeoriginal":
+			return "capture-time"
+		case "gpslatitude":
+			return "gps-latitude"
+		case "gpslongitude":
+			return "gps-longitude"
+		}
+	case dcNamespace:
+		switch local {
+		case "creator":
+			return "author"
+		case "rights":
+			return "copyright"
+		case "description":
+			return "comment"
+		}
+	case rdfNamespace:
+		if local == "li" {
+			return "li"
+		}
+	}
+	return ""
 }
 
 func nearestXMPMeaning(stack []xmpFrame) string {
 	for index := len(stack) - 1; index >= 0; index-- {
-		switch stack[index].name {
-		case "creator", "rights", "description":
-			return stack[index].name
+		switch stack[index].kind {
+		case "author", "copyright", "comment":
+			return stack[index].kind
 		}
 	}
 	return ""

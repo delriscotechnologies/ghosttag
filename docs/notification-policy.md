@@ -10,13 +10,13 @@ This policy controls wording in the CLI. It is not a scientific risk model.
 
 | Category | Included facts | Examples |
 | --- | --- | --- |
-| Location | Supported GPS coordinates | EXIF GPS latitude and longitude, XMP GPS coordinates |
-| Capture time | Supported original or creation timestamps | EXIF DateTimeOriginal, XMP CreateDate |
+| Location | Supported, validated GPS coordinate pairs | EXIF GPS latitude and longitude, XMP GPS coordinates from the same RDF description |
+| Capture time | Recognized original or creation timestamps | EXIF DateTimeOriginal, XMP CreateDate |
 | Device | Camera or image-capture make and model | EXIF Make and Model, XMP TIFF Make and Model |
-| Authorship | Author, artist, owner, or copyright values | EXIF Artist, XMP creator, PNG Author |
-| Comments | Free-form comments, captions, or descriptions | JPEG COM, EXIF UserComment, XMP description, PNG Comment |
+| Authorship | Author, artist, owner, or copyright values | EXIF Artist, namespace-aware XMP creator, PNG Author |
+| Comments | Free-form comments, captions, or descriptions | JPEG COM, EXIF UserComment, namespace-aware XMP description, PNG Comment |
 
-Software and orientation remain visible in the report but are not included in this count. Technical tags that are not normalized by this version do not affect the policy.
+Unknown XMP namespaces and malformed capture-time values do not contribute to category counts. Software and orientation remain visible in the report but are not included in this count. Technical tags that are not normalized by this version do not affect the policy.
 
 The count is based on categories rather than tags. For example, five device tags still contribute one `device` category.
 
