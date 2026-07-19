@@ -3,13 +3,15 @@ package cli
 import (
 	"fmt"
 	"io"
+	"runtime/debug"
 
 	"github.com/delriscotechnologies/ghosttag/internal/assessment"
 	"github.com/delriscotechnologies/ghosttag/internal/inspect"
 	"github.com/delriscotechnologies/ghosttag/internal/report"
 )
 
-// Version is replaced at build time for releases.
+// Version may be replaced at build time. Standard Go module installations use
+// the version recorded in the binary's build information.
 var Version = "dev"
 
 // Run executes the command and returns a process exit code.
@@ -20,7 +22,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			writeUsage(stdout)
 			return 0
 		case "--version":
-			fmt.Fprintf(stdout, "ghosttag %s\n", Version)
+			fmt.Fprintf(stdout, "ghosttag %s\n", displayVersion())
 			return 0
 		}
 	}
@@ -44,6 +46,17 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	return 0
+}
+
+func displayVersion() string {
+	if Version != "" && Version != "dev" {
+		return Version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return "dev"
+	}
+	return info.Main.Version
 }
 
 func writeUsage(writer io.Writer) {
