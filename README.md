@@ -138,7 +138,9 @@ The category count changes report wording only. Zero categories does not prove a
 | **Network** | Makes no network calls during inspection |
 | **Scope** | Accepts one JPEG or PNG per execution and does not scan directories |
 
-It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Concurrent writers can still attempt unusual races, so inspect an unchanged copy of hostile input with minimum privileges and operating-system resource limits. See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
+It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Concurrent writers can still attempt unusual races, so inspect an unchanged copy of hostile input with minimum privileges and operating-system resource limits.
+
+See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
 
 ## License
 
