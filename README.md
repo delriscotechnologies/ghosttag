@@ -19,7 +19,7 @@ Each run reports the file details, metadata values, source containers, privacy-r
 
 ## Quick Start
 
-Go 1.26 or newer is required.
+GHOSTTAG supports Linux on amd64 and arm64. Windows and macOS are not supported. Go 1.26 or newer is required.
 
 Install the command:
 
@@ -98,7 +98,7 @@ Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstru
 
 ## How It Works
 
-1. Opens one regular file, rejects symbolic-link inputs, and verifies opened-file identity where atomic no-follow support is unavailable.
+1. Opens one regular file with Linux `O_NOFOLLOW` semantics and rejects symbolic-link inputs.
 2. Rejects directories, devices, FIFOs, other special files, files larger than 100 MiB, and files whose size or modification time changes during reading.
 3. Detects JPEG or PNG from the file signature instead of trusting the extension.
 4. Calculates the SHA-256 digest and reads validated image dimensions.
@@ -129,7 +129,7 @@ The category count changes report wording only. Zero categories does not prove a
 
 | Boundary | Enforcement |
 | --- | --- |
-| **File access** | Rejects symbolic-link inputs, verifies opened-file identity, detects common concurrent changes, and never writes to the file |
+| **File access** | Opens files with Linux `O_NOFOLLOW`, rejects symbolic links and non-regular files, detects common concurrent changes, and never writes to the file |
 | **Input size** | Rejects files larger than 100 MiB before parsing |
 | **Parsing** | Limits JPEG markers, PNG chunks, metadata size, decompression, XMP depth and tokens, warnings, locations, and values per metadata field |
 | **Integrity** | Validates JPEG frame headers, enforces PNG critical CRCs, skips invalid ancillary chunks, and keeps XMP GPS pairs within their descriptions |
@@ -138,7 +138,7 @@ The category count changes report wording only. Zero categories does not prove a
 | **Network** | Makes no network calls during inspection |
 | **Scope** | Accepts one JPEG or PNG per execution and does not scan directories |
 
-It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Concurrent writers can still attempt unusual races, so inspect an unchanged copy of hostile input with minimum privileges and operating-system resource limits.
+It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Concurrent writers can still attempt unusual races, so inspect an unchanged copy of hostile input with minimum privileges and Linux resource limits.
 
 See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
 

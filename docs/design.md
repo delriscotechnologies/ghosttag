@@ -4,6 +4,8 @@
 
 `ghosttag` accepts one path to a JPEG or PNG file, performs an offline read-only inspection, writes one English terminal report, and exits.
 
+The supported deployment target is Linux on amd64 and arm64. Windows and macOS are not supported targets.
+
 Exit codes:
 
 | Code | Meaning |
@@ -73,8 +75,8 @@ Local commands use the Go toolchain selected by `GO`, which defaults to the `go`
 | --- | --- |
 | Go toolchain | `$(GO)`, defaulting to `go` on `PATH` |
 | Build and module caches | Go environment defaults, or caller-provided `GOCACHE` and `GOMODCACHE` |
-| Temporary files | Operating-system and Go defaults, or caller-provided temporary-directory variables |
+| Temporary files | Linux and Go defaults, or caller-provided temporary-directory variables |
 | Built binaries | `bin/` |
 | Optional coverage or release artifacts | `coverage/` and `dist/` |
 
-`bin/`, `coverage/`, and `dist/` are ignored by Git. CI selects the version from `go.mod` with `actions/setup-go`; the current implementation has no third-party Go modules.
+`bin/`, `coverage/`, `dist/`, and `.vscode/` are ignored by Git. CI selects the version from `go.mod` with `actions/setup-go`; the current implementation has no third-party Go modules.
