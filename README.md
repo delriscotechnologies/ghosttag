@@ -33,6 +33,15 @@ Make sure `GOBIN`, or `$(go env GOPATH)/bin` when `GOBIN` is unset, is included 
 ghosttag /path/to/image.jpg
 ```
 
+To build and install directly from the repository instead:
+
+```bash
+git clone https://github.com/delriscotechnologies/ghosttag.git
+cd ghosttag
+go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+sudo install -m 0755 ./bin/ghosttag /usr/local/bin/ghosttag
+```
+
 ## The Report
 
 Every report is divided into four parts:
@@ -126,30 +135,6 @@ The category count changes report wording only. Zero categories does not prove a
 | **Scope** | Accepts one JPEG or PNG per execution and does not scan directories |
 
 It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Inspect hostile files with minimum privileges and operating-system resource limits. See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
-
-## Install from Source
-
-The repository uses the Go installation already available on the system. It does not download or maintain a separate toolchain.
-
-```bash
-git clone https://github.com/delriscotechnologies/ghosttag.git
-cd ghosttag
-
-go test ./...
-go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
-sudo install -m 0755 ./bin/ghosttag /usr/local/bin/ghosttag
-```
-
-## Development
-
-```bash
-go fmt ./...
-go test ./...
-go vet ./...
-go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
-```
-
-The same workflow is available through `make check`, `make build`, and `sudo make install`. CI tests the code, runs `go vet`, verifies standard Go installation, and builds Linux AMD64 and ARM64 binaries. The implementation uses only the Go standard library.
 
 ## License
 
