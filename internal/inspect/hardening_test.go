@@ -68,7 +68,7 @@ func TestSanitizesExtensionAndMismatchWarning(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "image.\x1b[31mjpg\u202E")
 	if err := os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
+		t.Skipf("platform does not permit the unsafe test filename: %v", err)
 	}
 	result, err := File(path)
 	if err != nil {
