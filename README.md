@@ -15,7 +15,7 @@
 
 GHOSTTAG inspects one JPEG or PNG file and extracts supported EXIF, XMP, comment, and PNG text metadata into a terminal report.
 
-Each run reports the file details, metadata values, source containers, warnings, and privacy-relevant categories it finds. It does not upload the image, modify the file, analyze visual content, or scan directories.
+Each run reports the file details, metadata values, source containers, privacy-relevant categories, and warnings when needed. It does not upload the image, modify the file, analyze visual content, or scan directories.
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ Every report includes three core sections. A **Warnings** section is added only 
 | Section | Contents |
 | --- | --- |
 | **File** | Detected format, extension, size, dimensions, and SHA-256 |
-| **Metadata** | Extracted values and the container each value came from |
+| **Metadata** | Extracted values and every supported source container that supplied each value |
 | **Warnings** | Present only when warnings were generated |
 | **Privacy context** | Supported privacy categories found in the file |
 
@@ -98,13 +98,14 @@ Standard JPEG XMP is supported. Extended multi-segment JPEG XMP is not reconstru
 
 ## How It Works
 
-1. Opens one stable regular file, rejects symbolic-link inputs, and verifies the opened file identity where atomic no-follow support is unavailable.
-2. Rejects directories, devices, FIFOs, other special files, and files larger than 100 MiB.
+1. Opens one regular file, rejects symbolic-link inputs, and verifies opened-file identity where atomic no-follow support is unavailable.
+2. Rejects directories, devices, FIFOs, other special files, files larger than 100 MiB, and files whose size or modification time changes during reading.
 3. Detects JPEG or PNG from the file signature instead of trusting the extension.
-4. Calculates the SHA-256 digest and reads the image dimensions.
-5. Parses supported metadata containers within explicit limits.
-6. Groups equivalent fields while retaining their source container.
-7. Neutralizes unsafe terminal characters and prints the report.
+4. Calculates the SHA-256 digest and reads validated image dimensions.
+5. Parses supported metadata containers within explicit per-field and parser limits.
+6. Groups equivalent fields while retaining every distinct source container.
+7. Validates GPS directions and degree, minute, and second components.
+8. Neutralizes unsafe terminal characters and prints the report.
 
 The parser validates only the container structure needed to locate supported metadata and dimensions. It is not a full image decoder and does not inspect pixels, recognize visual subjects, or inspect faces.
 
@@ -126,15 +127,15 @@ The category count changes report wording only. Zero categories does not prove a
 
 | Boundary | Enforcement |
 | --- | --- |
-| **File access** | Rejects symbolic-link inputs, verifies a stable regular file, and never writes to it |
+| **File access** | Rejects symbolic-link inputs, verifies opened-file identity, detects common concurrent changes, and never writes to the file |
 | **Input size** | Rejects files larger than 100 MiB before parsing |
-| **Parsing** | Limits chunks, metadata size, decompression, XMP depth and tokens, warnings, and normalized values |
-| **Coordinates** | Rejects `NaN`, infinity, and out-of-range GPS values |
+| **Parsing** | Limits chunks, metadata size, decompression, XMP depth and tokens, warnings, locations, and values per metadata field |
+| **Coordinates** | Validates GPS direction and components and rejects `NaN`, infinity, and out-of-range values |
 | **Terminal output** | Replaces control and Unicode format characters and truncates long text values |
 | **Network** | Makes no network calls during inspection |
 | **Scope** | Accepts one JPEG or PNG per execution and does not scan directories |
 
-It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Inspect hostile files with minimum privileges and operating-system resource limits. See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
+It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Concurrent writers can still attempt unusual races, so inspect an unchanged copy of hostile input with minimum privileges and operating-system resource limits. See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
 
 ## License
 
