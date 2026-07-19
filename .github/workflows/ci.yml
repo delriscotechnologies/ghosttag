@@ -40,6 +40,10 @@ jobs:
           GOBIN: ${{ runner.temp }}/ghosttag-bin
         run: go install ./cmd/ghosttag
 
+      - name: Build through Makefile
+        if: runner.os != 'Windows'
+        run: make build
+
   security:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -66,6 +70,10 @@ jobs:
       - name: Fuzz image parsers
         if: matrix.os == 'ubuntu-latest'
         run: go test ./internal/inspect -run=^$ -fuzz=FuzzImageParsersDoNotPanic -fuzztime=5s
+
+      - name: Fuzz metadata parsers
+        if: matrix.os == 'ubuntu-latest'
+        run: go test ./internal/inspect -run=^$ -fuzz=FuzzMetadataParsersDoNotPanic -fuzztime=5s
 
       - name: Fuzz XMP coordinates
         if: matrix.os == 'ubuntu-latest'
