@@ -23,7 +23,7 @@ Each run reports the file details, metadata values, source containers, privacy-r
 
 ## Quick Start
 
-GHOSTTAG supports Linux on amd64 and arm64. Windows and macOS are not supported. Go 1.26 or newer is required.
+GHOSTTAG supports Linux on amd64 and arm64. Go 1.26 or newer is required.
 
 Install the command:
 

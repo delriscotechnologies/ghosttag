@@ -4,7 +4,7 @@
 
 `ghosttag` accepts one path to a JPEG or PNG file, performs an offline read-only inspection, writes one English terminal report, and exits.
 
-The supported deployment target is Linux on amd64 and arm64. Windows and macOS are not supported targets.
+The supported deployment target is Linux on amd64 and arm64.
 
 Exit codes:
 

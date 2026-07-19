@@ -4,7 +4,7 @@
 
 Security fixes are applied to the current `main` branch. No older release line is maintained yet.
 
-The supported platform is Linux on amd64 and arm64. Windows and macOS are outside the supported security boundary.
+The supported platform is Linux on amd64 and arm64.
 
 ## Reporting a Vulnerability
 
