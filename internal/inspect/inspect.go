@@ -42,6 +42,13 @@ func File(path string) (model.Report, error) {
 	if int64(len(data)) > maximumFileBytes {
 		return result, fmt.Errorf("%q exceeds the %d MiB safety limit", path, maximumFileBytes/(1024*1024))
 	}
+	afterInfo, err := file.Stat()
+	if err != nil {
+		return result, fmt.Errorf("stat %q after reading: %w", path, err)
+	}
+	if info.Size() != afterInfo.Size() || !info.ModTime().Equal(afterInfo.ModTime()) {
+		return result, fmt.Errorf("%q changed while it was being read; inspect an unchanged copy", path)
+	}
 
 	format, err := detectFormat(data)
 	if err != nil {

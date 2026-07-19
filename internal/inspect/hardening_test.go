@@ -51,6 +51,38 @@ func TestRejectsNonFiniteCoordinates(t *testing.T) {
 	}
 }
 
+func TestRejectsInvalidXMPDMSCoordinates(t *testing.T) {
+	tests := []struct {
+		value    string
+		latitude bool
+	}{
+		{value: "37,60N", latitude: true},
+		{value: "37,10,60N", latitude: true},
+		{value: "37E", latitude: true},
+		{value: "122N", latitude: false},
+		{value: "90,0.1N", latitude: true},
+		{value: "-37N", latitude: true},
+	}
+	for _, test := range tests {
+		if _, err := parseXMPCoordinate(test.value, test.latitude); err == nil {
+			t.Errorf("%q: expected an error", test.value)
+		}
+	}
+}
+
+func TestRejectsInvalidEXIFDMSComponents(t *testing.T) {
+	data := testTIFF()
+	putRationals(data[250:274], [][2]uint32{{37, 1}, {60, 1}, {0, 1}})
+	var metadata model.Metadata
+	var warnings []string
+	if err := parseEXIF(data, "test", newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.Locations) != 0 || len(warnings) == 0 {
+		t.Fatalf("expected invalid location to be omitted with a warning: locations=%v warnings=%v", metadata.Locations, warnings)
+	}
+}
+
 func TestSafeTextRemovesFormatControls(t *testing.T) {
 	got := safeText("safe\u202Egpj.exe\u2066end")
 	if strings.ContainsRune(got, '\u202E') || strings.ContainsRune(got, '\u2066') {
@@ -85,18 +117,41 @@ func TestSanitizesExtensionAndMismatchWarning(t *testing.T) {
 	}
 }
 
-func TestCollectorLimitsValues(t *testing.T) {
+func TestCollectorLimitsEachFieldIndependently(t *testing.T) {
 	var metadata model.Metadata
 	var warnings []string
 	collector := newCollector(&metadata, &warnings)
 	for index := 0; index < maximumMetadataValues+20; index++ {
-		collector.addValue(&metadata.Comments, string(rune(0x1000+index)), "test")
+		collector.addValue(&metadata.Comments, string(rune(0x1000+index)), "comment source")
 	}
+	collector.addLocation(37.775, -122.416667, "GPS source")
+	collector.addCaptureTime("2026-07-18", "time source")
+
 	if len(metadata.Comments) != maximumMetadataValues {
-		t.Fatalf("got %d values", len(metadata.Comments))
+		t.Fatalf("got %d comments", len(metadata.Comments))
+	}
+	if len(metadata.Locations) != 1 || len(metadata.CaptureTime) != 1 {
+		t.Fatalf("one full field hid later privacy categories: %+v", metadata)
 	}
 	if len(warnings) == 0 {
 		t.Fatal("expected limit warning")
+	}
+}
+
+func TestCollectorRetainsAllSourcesForDuplicateValues(t *testing.T) {
+	var metadata model.Metadata
+	var warnings []string
+	collector := newCollector(&metadata, &warnings)
+	collector.addValue(&metadata.Authors, "Example Author", "EXIF")
+	collector.addValue(&metadata.Authors, "example author", "XMP")
+	collector.addLocation(1, 2, "EXIF GPS")
+	collector.addLocation(1, 2, "XMP GPS")
+
+	if len(metadata.Authors) != 1 || metadata.Authors[0].Source != "EXIF | XMP" {
+		t.Fatalf("unexpected author provenance: %+v", metadata.Authors)
+	}
+	if len(metadata.Locations) != 1 || metadata.Locations[0].Source != "EXIF GPS | XMP GPS" {
+		t.Fatalf("unexpected location provenance: %+v", metadata.Locations)
 	}
 }
 
@@ -125,6 +180,28 @@ func TestPNGChunkLimit(t *testing.T) {
 	_, _, err := parsePNG(data, newCollector(&metadata, &warnings))
 	if err == nil || !strings.Contains(err.Error(), "chunk safety limit") {
 		t.Fatalf("expected chunk limit error, got %v", err)
+	}
+}
+
+func TestPNGRequiresFirstUniqueIHDRAndValidDimensions(t *testing.T) {
+	validIHDR := make([]byte, 13)
+	binary.BigEndian.PutUint32(validIHDR[0:4], 1)
+	binary.BigEndian.PutUint32(validIHDR[4:8], 1)
+	tooWideIHDR := append([]byte{}, validIHDR...)
+	binary.BigEndian.PutUint32(tooWideIHDR[0:4], maximumPNGDimension+1)
+
+	tests := [][]byte{
+		append(append(append([]byte{}, pngSignature...), testChunk("tEXt", []byte("A\x00B"))...), testChunk("IEND", nil)...),
+		append(append(append(append([]byte{}, pngSignature...), testChunk("IHDR", validIHDR)...), testChunk("IHDR", validIHDR)...), testChunk("IEND", nil)...),
+		append(append(append([]byte{}, pngSignature...), testChunk("IHDR", tooWideIHDR)...), testChunk("IEND", nil)...),
+		append(append(append(append([]byte{}, pngSignature...), testChunk("IHDR", validIHDR)...), testChunk("IEND", nil)...), byte(0)),
+	}
+	for index, data := range tests {
+		var metadata model.Metadata
+		var warnings []string
+		if _, _, err := parsePNG(data, newCollector(&metadata, &warnings)); err == nil {
+			t.Errorf("case %d: expected malformed PNG error", index)
+		}
 	}
 }
 

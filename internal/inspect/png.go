@@ -14,6 +14,7 @@ const (
 	maximumCompressedTextBytes = 1024 * 1024
 	maximumMetadataChunkBytes  = 8 * 1024 * 1024
 	maximumPNGChunks           = 10000
+	maximumPNGDimension        = uint32(1<<31 - 1)
 )
 
 func parsePNG(data []byte, collector *collector) (int, int, error) {
@@ -22,6 +23,7 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 	}
 
 	width, height := 0, 0
+	foundHeader := false
 	foundEnd := false
 	chunkCount := 0
 	for position := len(pngSignature); position < len(data); {
@@ -40,6 +42,9 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 
 		chunkTypeBytes := data[position+4 : position+8]
 		chunkType := string(chunkTypeBytes)
+		if chunkCount == 1 && chunkType != "IHDR" {
+			return 0, 0, fmt.Errorf("malformed PNG: IHDR must be the first chunk")
+		}
 		chunkData := data[position+8 : position+8+int(chunkLength)]
 		expectedCRC := binary.BigEndian.Uint32(data[position+8+int(chunkLength) : int(chunkEnd)])
 		checksum := crc32.NewIEEE()
@@ -60,11 +65,20 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 
 		switch chunkType {
 		case "IHDR":
+			if foundHeader {
+				return 0, 0, fmt.Errorf("malformed PNG: duplicate IHDR")
+			}
 			if len(chunkData) != 13 {
 				return 0, 0, fmt.Errorf("malformed PNG: invalid IHDR length")
 			}
-			width = int(binary.BigEndian.Uint32(chunkData[0:4]))
-			height = int(binary.BigEndian.Uint32(chunkData[4:8]))
+			rawWidth := binary.BigEndian.Uint32(chunkData[0:4])
+			rawHeight := binary.BigEndian.Uint32(chunkData[4:8])
+			if rawWidth == 0 || rawHeight == 0 || rawWidth > maximumPNGDimension || rawHeight > maximumPNGDimension {
+				return 0, 0, fmt.Errorf("malformed PNG: invalid IHDR dimensions")
+			}
+			width = int(rawWidth)
+			height = int(rawHeight)
+			foundHeader = true
 		case "eXIf":
 			collector.addContainer("PNG eXIf")
 			if err := parseEXIF(chunkData, "PNG eXIf", collector); err != nil {
@@ -95,16 +109,22 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 				parsePNGText(keyword, value, "iTXt", collector)
 			}
 		case "IEND":
+			if len(chunkData) != 0 {
+				return 0, 0, fmt.Errorf("malformed PNG: invalid IEND length")
+			}
 			foundEnd = true
 		}
 
 		position = int(chunkEnd)
 		if foundEnd {
+			if position != len(data) {
+				return 0, 0, fmt.Errorf("malformed PNG: data follows IEND")
+			}
 			break
 		}
 	}
 
-	if width == 0 || height == 0 {
+	if !foundHeader || width == 0 || height == 0 {
 		return 0, 0, fmt.Errorf("malformed PNG: missing or invalid IHDR")
 	}
 	if !foundEnd {

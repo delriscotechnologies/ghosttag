@@ -156,6 +156,12 @@ func parseXMPCoordinate(value string, latitude bool) (float64, error) {
 		direction = byte(strings.ToUpper(string(last))[0])
 		value = strings.TrimSpace(value[:len(value)-1])
 	}
+	if latitude && direction != 0 && direction != 'N' && direction != 'S' {
+		return 0, fmt.Errorf("latitude has invalid direction %q", direction)
+	}
+	if !latitude && direction != 0 && direction != 'E' && direction != 'W' {
+		return 0, fmt.Errorf("longitude has invalid direction %q", direction)
+	}
 
 	replacer := strings.NewReplacer(",", " ", "°", " ", "'", " ", "\"", " ")
 	parts := strings.Fields(replacer.Replace(value))
@@ -172,23 +178,54 @@ func parseXMPCoordinate(value string, latitude bool) (float64, error) {
 		numbers[index] = parsed
 	}
 
-	coordinate := math.Abs(numbers[0])
-	if len(numbers) >= 2 {
-		coordinate += numbers[1] / 60
-	}
-	if len(numbers) == 3 {
-		coordinate += numbers[2] / 3600
-	}
-	if numbers[0] < 0 || direction == 'S' || direction == 'W' {
-		coordinate = -coordinate
-	}
-
 	limit := 180.0
 	if latitude {
 		limit = 90
 	}
-	if math.IsNaN(coordinate) || math.IsInf(coordinate, 0) || coordinate < -limit || coordinate > limit {
+	if len(numbers) == 1 {
+		coordinate := numbers[0]
+		if direction != 0 {
+			if coordinate < 0 {
+				return 0, fmt.Errorf("signed coordinate cannot also use a direction")
+			}
+			if direction == 'S' || direction == 'W' {
+				coordinate = -coordinate
+			}
+		}
+		if coordinate < -limit || coordinate > limit {
+			return 0, fmt.Errorf("coordinate is out of range")
+		}
+		return coordinate, nil
+	}
+
+	coordinate, err := coordinateFromDMS(numbers, limit)
+	if err != nil {
+		return 0, err
+	}
+	if direction == 'S' || direction == 'W' {
+		coordinate = -coordinate
+	}
+	return coordinate, nil
+}
+
+func coordinateFromDMS(parts []float64, limit float64) (float64, error) {
+	if len(parts) < 2 || len(parts) > 3 {
+		return 0, fmt.Errorf("expected degrees and minutes with optional seconds")
+	}
+	for _, part := range parts {
+		if math.IsNaN(part) || math.IsInf(part, 0) || part < 0 {
+			return 0, fmt.Errorf("coordinate components must be finite and non-negative")
+		}
+	}
+	if parts[1] >= 60 || len(parts) == 3 && parts[2] >= 60 {
+		return 0, fmt.Errorf("coordinate minutes and seconds must be less than 60")
+	}
+	if parts[0] > limit || parts[0] == limit && (parts[1] != 0 || len(parts) == 3 && parts[2] != 0) {
 		return 0, fmt.Errorf("coordinate is out of range")
+	}
+	coordinate := parts[0] + parts[1]/60
+	if len(parts) == 3 {
+		coordinate += parts[2] / 3600
 	}
 	return coordinate, nil
 }

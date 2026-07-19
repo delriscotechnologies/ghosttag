@@ -12,20 +12,24 @@ import (
 
 const (
 	maximumDisplayRunes   = 500
-	maximumMetadataValues = 256
+	maximumMetadataValues = 64
+	maximumLocations      = 64
 	maximumWarnings       = 100
 )
 
 type collector struct {
 	metadata          *model.Metadata
 	warnings          *[]string
-	valuesAdded       int
-	valueLimitNoted   bool
+	valueLimitNoted   map[string]bool
 	warningLimitNoted bool
 }
 
 func newCollector(metadata *model.Metadata, warnings *[]string) *collector {
-	return &collector{metadata: metadata, warnings: warnings}
+	return &collector{
+		metadata:        metadata,
+		warnings:        warnings,
+		valueLimitNoted: make(map[string]bool),
+	}
 }
 
 func (c *collector) addContainer(container string) {
@@ -47,11 +51,12 @@ func (c *collector) warn(format string, args ...any) {
 	}
 }
 
-func (c *collector) noteValueLimit() {
-	if !c.valueLimitNoted {
-		c.valueLimitNoted = true
-		c.warn("Additional metadata values were omitted after the %d-value safety limit was reached.", maximumMetadataValues)
+func (c *collector) noteValueLimit(field string, limit int) {
+	if c.valueLimitNoted[field] {
+		return
 	}
+	c.valueLimitNoted[field] = true
+	c.warn("Additional %s values were omitted after the %d-value safety limit was reached.", field, limit)
 }
 
 func (c *collector) addValue(values *[]model.SourcedValue, value, source string) {
@@ -59,17 +64,42 @@ func (c *collector) addValue(values *[]model.SourcedValue, value, source string)
 	if value == "" {
 		return
 	}
-	for _, existing := range *values {
-		if strings.EqualFold(existing.Value, value) {
+	source = safeText(source)
+	for index := range *values {
+		if strings.EqualFold((*values)[index].Value, value) {
+			(*values)[index].Source = mergeSources((*values)[index].Source, source)
 			return
 		}
 	}
-	if c.valuesAdded >= maximumMetadataValues {
-		c.noteValueLimit()
+	field := c.valueField(values)
+	if len(*values) >= maximumMetadataValues {
+		c.noteValueLimit(field, maximumMetadataValues)
 		return
 	}
-	*values = append(*values, model.SourcedValue{Value: value, Source: safeText(source)})
-	c.valuesAdded++
+	*values = append(*values, model.SourcedValue{Value: value, Source: source})
+}
+
+func (c *collector) valueField(values *[]model.SourcedValue) string {
+	switch values {
+	case &c.metadata.CaptureTime:
+		return "capture-time"
+	case &c.metadata.DeviceMake:
+		return "device-make"
+	case &c.metadata.DeviceModel:
+		return "device-model"
+	case &c.metadata.Software:
+		return "software"
+	case &c.metadata.Authors:
+		return "author"
+	case &c.metadata.Copyright:
+		return "copyright"
+	case &c.metadata.Comments:
+		return "comment"
+	case &c.metadata.Orientation:
+		return "orientation"
+	default:
+		return "metadata"
+	}
 }
 
 func (c *collector) addCaptureTime(value, source string) {
@@ -82,19 +112,36 @@ func (c *collector) addLocation(latitude, longitude float64, source string) {
 		c.warn("Ignored an invalid or out-of-range GPS coordinate from %s.", source)
 		return
 	}
-	for _, existing := range c.metadata.Locations {
+	source = safeText(source)
+	for index := range c.metadata.Locations {
+		existing := &c.metadata.Locations[index]
 		if existing.Latitude == latitude && existing.Longitude == longitude {
+			existing.Source = mergeSources(existing.Source, source)
 			return
 		}
 	}
-	if c.valuesAdded >= maximumMetadataValues {
-		c.noteValueLimit()
+	if len(c.metadata.Locations) >= maximumLocations {
+		c.noteValueLimit("location", maximumLocations)
 		return
 	}
 	c.metadata.Locations = append(c.metadata.Locations, model.Location{
-		Latitude: latitude, Longitude: longitude, Source: safeText(source),
+		Latitude: latitude, Longitude: longitude, Source: source,
 	})
-	c.valuesAdded++
+}
+
+func mergeSources(existing, source string) string {
+	if source == "" {
+		return existing
+	}
+	if existing == "" {
+		return source
+	}
+	for _, item := range strings.Split(existing, " | ") {
+		if item == source {
+			return existing
+		}
+	}
+	return safeText(existing + " | " + source)
 }
 
 func safeText(value string) string {

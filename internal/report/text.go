@@ -8,31 +8,49 @@ import (
 	"github.com/delriscotechnologies/ghosttag/internal/model"
 )
 
+type textWriter struct {
+	writer io.Writer
+	err    error
+}
+
+func (writer *textWriter) print(format string, args ...any) {
+	if writer.err != nil {
+		return
+	}
+	_, writer.err = fmt.Fprintf(writer.writer, format, args...)
+}
+
+func (writer *textWriter) println(args ...any) {
+	if writer.err != nil {
+		return
+	}
+	_, writer.err = fmt.Fprintln(writer.writer, args...)
+}
+
 // WriteText writes a stable, human-readable terminal report.
-func WriteText(writer io.Writer, result model.Report) error {
-	if _, err := fmt.Fprintln(writer, "ghosttag — image metadata report"); err != nil {
-		return err
-	}
+func WriteText(output io.Writer, result model.Report) error {
+	writer := &textWriter{writer: output}
+	writer.println("ghosttag — image metadata report")
 
-	fmt.Fprintln(writer, "\nFile")
-	fmt.Fprintf(writer, "  Name: %s\n", result.File.Name)
-	fmt.Fprintf(writer, "  Detected format: %s\n", result.File.DetectedFormat)
-	fmt.Fprintf(writer, "  Extension: %s\n", displayExtension(result.File.Extension))
-	fmt.Fprintf(writer, "  Size: %s (%d bytes)\n", humanSize(result.File.Size), result.File.Size)
+	writer.println("\nFile")
+	writer.print("  Name: %s\n", result.File.Name)
+	writer.print("  Detected format: %s\n", result.File.DetectedFormat)
+	writer.print("  Extension: %s\n", displayExtension(result.File.Extension))
+	writer.print("  Size: %s (%d bytes)\n", humanSize(result.File.Size), result.File.Size)
 	if result.File.Width > 0 && result.File.Height > 0 {
-		fmt.Fprintf(writer, "  Dimensions: %d × %d pixels\n", result.File.Width, result.File.Height)
+		writer.print("  Dimensions: %d × %d pixels\n", result.File.Width, result.File.Height)
 	}
-	fmt.Fprintf(writer, "  SHA-256: %s\n", result.File.SHA256)
+	writer.print("  SHA-256: %s\n", result.File.SHA256)
 
-	fmt.Fprintln(writer, "\nMetadata")
+	writer.println("\nMetadata")
 	if len(result.Metadata.Containers) > 0 {
-		fmt.Fprintf(writer, "  Containers: %s\n", strings.Join(result.Metadata.Containers, ", "))
+		writer.print("  Containers: %s\n", strings.Join(result.Metadata.Containers, ", "))
 	} else {
-		fmt.Fprintln(writer, "  Containers: none found")
+		writer.println("  Containers: none found")
 	}
 
 	if !result.Metadata.HasSupportedFields() {
-		fmt.Fprintln(writer, "  No supported metadata fields were found.")
+		writer.println("  No supported metadata fields were found.")
 	} else {
 		writeLocations(writer, "Location", result.Metadata.Locations)
 		writeValues(writer, "Capture time", result.Metadata.CaptureTime)
@@ -46,44 +64,44 @@ func WriteText(writer io.Writer, result model.Report) error {
 	}
 
 	if len(result.Warnings) > 0 {
-		fmt.Fprintln(writer, "\nWarnings")
+		writer.println("\nWarnings")
 		for _, warning := range result.Warnings {
-			fmt.Fprintf(writer, "  - %s\n", warning)
+			writer.print("  - %s\n", warning)
 		}
 	}
 
-	fmt.Fprintln(writer, "\nPrivacy context")
+	writer.println("\nPrivacy context")
 	switch len(result.Assessment.Categories) {
 	case 0:
-		fmt.Fprintln(writer, "  No privacy-relevant metadata categories were found.")
-		fmt.Fprintln(writer, "  This does not prove the image is anonymous; ghosttag only inspects supported metadata.")
+		writer.println("  No privacy-relevant metadata categories were found.")
+		writer.println("  This does not prove the image is anonymous; ghosttag only inspects supported metadata.")
 	default:
-		fmt.Fprintf(writer, "  Categories found (%d): %s\n", len(result.Assessment.Categories), strings.Join(result.Assessment.Categories, ", "))
+		writer.print("  Categories found (%d): %s\n", len(result.Assessment.Categories), strings.Join(result.Assessment.Categories, ", "))
 		if result.Assessment.Notice != "" {
-			fmt.Fprintf(writer, "  Note: %s\n", result.Assessment.Notice)
+			writer.print("  Note: %s\n", result.Assessment.Notice)
 		}
 	}
 
-	return nil
+	return writer.err
 }
 
-func writeValues(writer io.Writer, label string, values []model.SourcedValue) {
+func writeValues(writer *textWriter, label string, values []model.SourcedValue) {
 	if len(values) == 0 {
 		return
 	}
-	fmt.Fprintf(writer, "  %s:\n", label)
+	writer.print("  %s:\n", label)
 	for _, value := range values {
-		fmt.Fprintf(writer, "    - %s [%s]\n", value.Value, value.Source)
+		writer.print("    - %s [%s]\n", value.Value, value.Source)
 	}
 }
 
-func writeLocations(writer io.Writer, label string, locations []model.Location) {
+func writeLocations(writer *textWriter, label string, locations []model.Location) {
 	if len(locations) == 0 {
 		return
 	}
-	fmt.Fprintf(writer, "  %s:\n", label)
+	writer.print("  %s:\n", label)
 	for _, location := range locations {
-		fmt.Fprintf(writer, "    - %.6f, %.6f [%s]\n", location.Latitude, location.Longitude, location.Source)
+		writer.print("    - %.6f, %.6f [%s]\n", location.Latitude, location.Longitude, location.Source)
 	}
 }
 
