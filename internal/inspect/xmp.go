@@ -38,7 +38,6 @@ func parseXMP(data []byte, source string, collector *collector) error {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	stack := make([]xmpFrame, 0, 8)
 	locations := make([]xmpLocation, 0, 2)
-	var rootLocation xmpLocation
 	tokenCount := 0
 
 	for {
@@ -69,7 +68,7 @@ func parseXMP(data []byte, source string, collector *collector) error {
 				if text == "" {
 					continue
 				}
-				processXMPValue(xmpPropertyKind(attribute.Name), text, source, collector, currentXMPLocation(locations, &rootLocation))
+				processXMPValue(xmpPropertyKind(attribute.Name), text, source, collector, currentXMPLocation(locations))
 			}
 		case xml.CharData:
 			if len(stack) > 0 {
@@ -87,7 +86,7 @@ func parseXMP(data []byte, source string, collector *collector) error {
 				if kind == "li" {
 					kind = nearestXMPMeaning(stack)
 				}
-				processXMPValue(kind, text, source, collector, currentXMPLocation(locations, &rootLocation))
+				processXMPValue(kind, text, source, collector, currentXMPLocation(locations))
 			}
 			if frame.description {
 				location := locations[len(locations)-1]
@@ -97,13 +96,12 @@ func parseXMP(data []byte, source string, collector *collector) error {
 		}
 	}
 
-	flushXMPLocation(rootLocation, source, collector)
 	return nil
 }
 
-func currentXMPLocation(locations []xmpLocation, root *xmpLocation) *xmpLocation {
+func currentXMPLocation(locations []xmpLocation) *xmpLocation {
 	if len(locations) == 0 {
-		return root
+		return nil
 	}
 	return &locations[len(locations)-1]
 }
@@ -150,8 +148,16 @@ func processXMPValue(kind, text, source string, collector *collector, location *
 	case "comment":
 		collector.addValue(&collector.metadata.Comments, text, source)
 	case "gps-latitude":
+		if location == nil {
+			collector.warn("Ignored XMP GPS latitude from %s outside an RDF description.", source)
+			return
+		}
 		location.latitude = text
 	case "gps-longitude":
+		if location == nil {
+			collector.warn("Ignored XMP GPS longitude from %s outside an RDF description.", source)
+			return
+		}
 		location.longitude = text
 	}
 }

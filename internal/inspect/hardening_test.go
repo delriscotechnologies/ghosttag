@@ -110,6 +110,26 @@ func TestXMPDoesNotCrossPairIncompleteDescriptions(t *testing.T) {
 	}
 }
 
+func TestXMPIgnoresGPSOutsideDescriptions(t *testing.T) {
+	xmp := `<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="1N"><rdf:RDF exif:GPSLongitude="2E"><exif:GPSLatitude>3N</exif:GPSLatitude><exif:GPSLongitude>4E</exif:GPSLongitude><rdf:Description exif:GPSLatitude="5N" exif:GPSLongitude="6E"/></rdf:RDF></x:xmpmeta>`
+	var metadata model.Metadata
+	var warnings []string
+	if err := parseXMP([]byte(xmp), "XMP", newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.Locations) != 1 || metadata.Locations[0].Latitude != 5 || metadata.Locations[0].Longitude != 6 {
+		t.Fatalf("GPS outside RDF descriptions affected locations: %+v", metadata.Locations)
+	}
+	if len(warnings) != 2 {
+		t.Fatalf("expected deduplicated latitude and longitude warnings, got %v", warnings)
+	}
+	for _, warning := range warnings {
+		if !strings.Contains(warning, "outside an RDF description") {
+			t.Fatalf("unexpected warning: %q", warning)
+		}
+	}
+}
+
 func TestInvalidCaptureTimeIsNotClassified(t *testing.T) {
 	xmp := `<rdf:Description xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:CreateDate="not-a-date"/>`
 	var metadata model.Metadata
