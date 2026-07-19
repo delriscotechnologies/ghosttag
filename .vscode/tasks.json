@@ -4,57 +4,35 @@
     {
       "label": "ghosttag: bootstrap Go",
       "type": "shell",
-      "command": "wsl.exe",
-      "args": [
-        "--",
-        "bash",
-        "-lc",
-        "cd \"$(wslpath '${workspaceFolder}')\" && bash ./scripts/bootstrap-go.sh"
-      ],
+      "command": "bash",
+      "args": ["./scripts/bootstrap-go.sh"],
+      "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": []
     },
     {
       "label": "ghosttag: test",
       "type": "shell",
-      "command": "wsl.exe",
-      "args": [
-        "--",
-        "bash",
-        "-lc",
-        "cd \"$(wslpath '${workspaceFolder}')\" && bash ./scripts/go-local.sh test ./..."
-      ],
-      "group": {
-        "kind": "test",
-        "isDefault": true
-      },
+      "command": "bash",
+      "args": ["./scripts/go-local.sh", "test", "./..."],
+      "options": {"cwd": "${workspaceFolder}"},
+      "group": {"kind": "test", "isDefault": true},
       "problemMatcher": ["$go"]
     },
     {
       "label": "ghosttag: vet",
       "type": "shell",
-      "command": "wsl.exe",
-      "args": [
-        "--",
-        "bash",
-        "-lc",
-        "cd \"$(wslpath '${workspaceFolder}')\" && bash ./scripts/go-local.sh vet ./..."
-      ],
+      "command": "bash",
+      "args": ["./scripts/go-local.sh", "vet", "./..."],
+      "options": {"cwd": "${workspaceFolder}"},
       "problemMatcher": ["$go"]
     },
     {
       "label": "ghosttag: build Linux",
       "type": "shell",
-      "command": "wsl.exe",
-      "args": [
-        "--",
-        "bash",
-        "-lc",
-        "cd \"$(wslpath '${workspaceFolder}')\" && mkdir -p bin && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 bash ./scripts/go-local.sh build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
+      "command": "bash",
+      "args": ["-lc", "mkdir -p bin && CGO_ENABLED=0 GOOS=linux bash ./scripts/go-local.sh build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag"],
+      "options": {"cwd": "${workspaceFolder}"},
+      "group": {"kind": "build", "isDefault": true},
       "problemMatcher": ["$go"]
     }
   ]
