@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <strong>Linux only · amd64 / arm64</strong>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#the-report">Report</a> ·
   <a href="#metadata-coverage">Metadata</a> ·
