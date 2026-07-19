@@ -103,7 +103,12 @@ func (c *collector) valueField(values *[]model.SourcedValue) string {
 }
 
 func (c *collector) addCaptureTime(value, source string) {
-	c.addValue(&c.metadata.CaptureTime, normalizeTime(value), source)
+	normalized, ok := normalizeTime(value)
+	if !ok {
+		c.warn("Ignored an invalid capture-time value from %s.", source)
+		return
+	}
+	c.addValue(&c.metadata.CaptureTime, normalized, source)
 }
 
 func (c *collector) addLocation(latitude, longitude float64, source string) {
@@ -161,16 +166,16 @@ func safeText(value string) string {
 	return value
 }
 
-func normalizeTime(value string) string {
+func normalizeTime(value string) (string, bool) {
 	value = safeText(value)
 	if value == "" {
-		return ""
+		return "", false
 	}
 
 	zonedLayouts := []string{time.RFC3339Nano, time.RFC3339}
 	for _, layout := range zonedLayouts {
 		if parsed, err := time.Parse(layout, value); err == nil {
-			return parsed.Format(time.RFC3339)
+			return parsed.Format(time.RFC3339), true
 		}
 	}
 
@@ -187,11 +192,11 @@ func normalizeTime(value string) string {
 			if strings.Contains(layout, "15:04:05") {
 				formatted = parsed.Format("2006-01-02T15:04:05")
 			}
-			return formatted + " (timezone not recorded)"
+			return formatted + " (timezone not recorded)", true
 		}
 	}
 
-	return value
+	return "", false
 }
 
 func appendUnique(values []string, value string) []string {
