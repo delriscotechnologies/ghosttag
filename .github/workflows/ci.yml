@@ -32,7 +32,22 @@ jobs:
       - name: Test CLI
         run: go test ./internal/cli
 
-      - name: Test inspector
+      - name: Test inspector integration
+        run: go test ./internal/inspect -run '^(TestInspect|TestRejectsUnsupportedBytes)'
+
+      - name: Test inspector XMP and GPS
+        run: go test ./internal/inspect -run '^(TestXMP|TestInvalidCaptureTime|TestRejectsInvalidXMP|TestRejectsNonFinite|TestRejectsInvalidEXIF)'
+
+      - name: Test inspector JPEG
+        run: go test ./internal/inspect -run '^TestJPEG'
+
+      - name: Test inspector PNG
+        run: go test ./internal/inspect -run '^TestPNG'
+
+      - name: Test inspector limits and files
+        run: go test ./internal/inspect -run '^(TestRejectsOversizedFile|TestRejectsSymlink|TestRejectsFIFO|TestSafeText|TestSanitizes|TestCollector)'
+
+      - name: Test inspector full package
         run: go test ./internal/inspect
 
       - name: Test report
