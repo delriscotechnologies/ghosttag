@@ -51,7 +51,7 @@ Parsing and reporting are separated so future output formats can consume the sam
 
 ## Parser behavior
 
-JPEG inspection stops before entropy-coded image data. It reads marker lengths, APP1 EXIF/XMP payloads, COM comments, and start-of-frame dimensions.
+JPEG inspection traverses a bounded number of markers through the end-of-image marker. After each start-of-scan marker, it skips entropy-coded bytes, including stuffed bytes and restart markers, then resumes parsing at the next marker. This allows APP1 EXIF/XMP payloads, COM comments, and start-of-frame dimensions in supported later scans to be inspected.
 
 PNG inspection walks bounded chunks, checks each CRC, reads dimensions from IHDR, and processes supported metadata chunks. zTXt and compressed iTXt values use zlib with a one-megabyte decompressed-text limit.
 
@@ -67,16 +67,14 @@ The inspector never writes to the input file.
 
 ## Local development environment
 
-All generated development state is routed into the repository:
+Local commands use the Go toolchain selected by `GO`, which defaults to the `go` executable on `PATH`. The repository does not bootstrap a private toolchain or redirect Go caches and temporary files.
 
-| State | Location |
+| Item | Behavior or location |
 | --- | --- |
-| Linux Go toolchain | `.tools/go` |
-| Installed Go tools | `.tools/bin` |
-| Build cache | `.cache/go-build` |
-| Module cache | `.cache/go-mod` |
-| Temporary files | `.tmp` |
-| Built binary | `bin/ghosttag` |
-| Coverage or release artifacts | `coverage` and `dist` |
+| Go toolchain | `$(GO)`, defaulting to `go` on `PATH` |
+| Build and module caches | Go environment defaults, or caller-provided `GOCACHE` and `GOMODCACHE` |
+| Temporary files | Operating-system and Go defaults, or caller-provided temporary-directory variables |
+| Built binaries | `bin/` |
+| Optional coverage or release artifacts | `coverage/` and `dist/` |
 
-The current implementation has no third-party Go modules.
+`bin/`, `coverage/`, and `dist/` are ignored by Git. CI selects the version from `go.mod` with `actions/setup-go`; the current implementation has no third-party Go modules.
