@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ghosttag: bootstrap Go",
+      "type": "shell",
+      "command": "wsl.exe",
+      "args": [
+        "--",
+        "bash",
+        "-lc",
+        "cd \"$(wslpath '${workspaceFolder}')\" && bash ./scripts/bootstrap-go.sh"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "ghosttag: test",
+      "type": "shell",
+      "command": "wsl.exe",
+      "args": [
+        "--",
+        "bash",
+        "-lc",
+        "cd \"$(wslpath '${workspaceFolder}')\" && bash ./scripts/go-local.sh test ./..."
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": ["$go"]
+    },
+    {
+      "label": "ghosttag: vet",
+      "type": "shell",
+      "command": "wsl.exe",
+      "args": [
+        "--",
+        "bash",
+        "-lc",
+        "cd \"$(wslpath '${workspaceFolder}')\" && bash ./scripts/go-local.sh vet ./..."
+      ],
+      "problemMatcher": ["$go"]
+    },
+    {
+      "label": "ghosttag: build Linux",
+      "type": "shell",
+      "command": "wsl.exe",
+      "args": [
+        "--",
+        "bash",
+        "-lc",
+        "cd \"$(wslpath '${workspaceFolder}')\" && mkdir -p bin && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 bash ./scripts/go-local.sh build -buildvcs=false -trimpath -o ./bin/ghosttag ./cmd/ghosttag"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$go"]
+    }
+  ]
+}
