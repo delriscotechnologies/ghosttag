@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -39,12 +41,18 @@ jobs:
         run: go install ./cmd/ghosttag
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -56,9 +64,11 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
       - name: Fuzz image parsers
+        if: matrix.os == 'ubuntu-latest'
         run: go test ./internal/inspect -run=^$ -fuzz=FuzzImageParsersDoNotPanic -fuzztime=5s
 
       - name: Fuzz XMP coordinates
+        if: matrix.os == 'ubuntu-latest'
         run: go test ./internal/inspect -run=^$ -fuzz=FuzzXMPCoordinatesDoNotPanic -fuzztime=5s
 
   build:
@@ -72,6 +82,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
