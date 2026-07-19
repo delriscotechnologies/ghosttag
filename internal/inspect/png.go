@@ -51,7 +51,12 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 		_, _ = checksum.Write(chunkTypeBytes)
 		_, _ = checksum.Write(chunkData)
 		if checksum.Sum32() != expectedCRC {
-			collector.warn("PNG chunk %s has an invalid CRC.", safeText(chunkType))
+			if isCriticalPNGChunk(chunkTypeBytes) {
+				return 0, 0, fmt.Errorf("malformed PNG: critical chunk %s has an invalid CRC", safeText(chunkType))
+			}
+			collector.warn("Ignored PNG chunk %s because its CRC is invalid.", safeText(chunkType))
+			position = int(chunkEnd)
+			continue
 		}
 
 		if isPNGMetadataChunk(chunkType) && len(chunkData) > maximumMetadataChunkBytes {
@@ -131,6 +136,10 @@ func parsePNG(data []byte, collector *collector) (int, int, error) {
 		return 0, 0, fmt.Errorf("malformed PNG: missing IEND")
 	}
 	return width, height, nil
+}
+
+func isCriticalPNGChunk(chunkType []byte) bool {
+	return len(chunkType) == 4 && chunkType[0]&0x20 == 0
 }
 
 func isPNGMetadataChunk(chunkType string) bool {
