@@ -83,6 +83,45 @@ func TestRejectsInvalidEXIFDMSComponents(t *testing.T) {
 	}
 }
 
+func TestXMPRequiresKnownNamespacesAndKeepsLocationsSeparate(t *testing.T) {
+	xmp := `<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:exif="http://ns.adobe.com/exif/1.0/" xmlns:fake="https://example.invalid/fake"><rdf:RDF><rdf:Description dc:creator="Valid Author" fake:creator="Fake Author" exif:GPSLatitude="1N" exif:GPSLongitude="2E"/><rdf:Description exif:GPSLatitude="3N" exif:GPSLongitude="4E"/></rdf:RDF></x:xmpmeta>`
+	var metadata model.Metadata
+	var warnings []string
+	if err := parseXMP([]byte(xmp), "XMP", newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.Authors) != 1 || metadata.Authors[0].Value != "Valid Author" {
+		t.Fatalf("unexpected authors: %+v", metadata.Authors)
+	}
+	if len(metadata.Locations) != 2 || metadata.Locations[0].Latitude != 1 || metadata.Locations[0].Longitude != 2 || metadata.Locations[1].Latitude != 3 || metadata.Locations[1].Longitude != 4 {
+		t.Fatalf("unexpected locations: %+v", metadata.Locations)
+	}
+}
+
+func TestXMPDoesNotCrossPairIncompleteDescriptions(t *testing.T) {
+	xmp := `<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:exif="http://ns.adobe.com/exif/1.0/"><rdf:RDF><rdf:Description exif:GPSLatitude="1N"/><rdf:Description exif:GPSLongitude="2E"/></rdf:RDF></x:xmpmeta>`
+	var metadata model.Metadata
+	var warnings []string
+	if err := parseXMP([]byte(xmp), "XMP", newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.Locations) != 0 || len(warnings) != 2 {
+		t.Fatalf("incomplete descriptions were cross-paired: locations=%v warnings=%v", metadata.Locations, warnings)
+	}
+}
+
+func TestInvalidCaptureTimeIsNotClassified(t *testing.T) {
+	xmp := `<rdf:Description xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:CreateDate="not-a-date"/>`
+	var metadata model.Metadata
+	var warnings []string
+	if err := parseXMP([]byte(xmp), "XMP", newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.CaptureTime) != 0 || len(warnings) != 1 {
+		t.Fatalf("invalid time was retained: capture=%v warnings=%v", metadata.CaptureTime, warnings)
+	}
+}
+
 func TestSafeTextRemovesFormatControls(t *testing.T) {
 	got := safeText("safe\u202Egpj.exe\u2066end")
 	if strings.ContainsRune(got, '\u202E') || strings.ContainsRune(got, '\u2066') {
@@ -164,6 +203,46 @@ func TestJPEGRequiresDimensions(t *testing.T) {
 	}
 }
 
+func TestJPEGMarkerLimit(t *testing.T) {
+	data := []byte{0xff, 0xd8}
+	for index := 0; index <= maximumJPEGMarkers; index++ {
+		data = append(data, 0xff, 0x01)
+	}
+	var metadata model.Metadata
+	var warnings []string
+	if _, _, err := parseJPEG(data, newCollector(&metadata, &warnings)); err == nil || !strings.Contains(err.Error(), "marker safety limit") {
+		t.Fatalf("expected marker limit error, got %v", err)
+	}
+}
+
+func TestJPEGRejectsIncompleteSOF(t *testing.T) {
+	data := []byte{0xff, 0xd8}
+	data = append(data, jpegSegment(0xc0, []byte{8, 0, 1, 0, 1})...)
+	data = append(data, 0xff, 0xd9)
+	var metadata model.Metadata
+	var warnings []string
+	if _, _, err := parseJPEG(data, newCollector(&metadata, &warnings)); err == nil || !strings.Contains(err.Error(), "start-of-frame") {
+		t.Fatalf("expected SOF validation error, got %v", err)
+	}
+}
+
+func TestJPEGFindsMetadataAfterScan(t *testing.T) {
+	data := []byte{0xff, 0xd8}
+	data = append(data, jpegSegment(0xc0, []byte{8, 0, 1, 0, 1, 1, 1, 0x11, 0})...)
+	data = append(data, jpegSegment(jpegSOS, []byte{1, 1, 0, 0, 63, 0})...)
+	data = append(data, 0x11, 0xff, 0x00, 0x22, 0xff, 0xd0, 0x33)
+	data = append(data, jpegSegment(jpegCOM, []byte("after scan"))...)
+	data = append(data, 0xff, 0xd9)
+	var metadata model.Metadata
+	var warnings []string
+	if _, _, err := parseJPEG(data, newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.Comments) != 1 || metadata.Comments[0].Value != "after scan" {
+		t.Fatalf("post-scan metadata was not found: %+v", metadata.Comments)
+	}
+}
+
 func TestPNGChunkLimit(t *testing.T) {
 	data := append([]byte{}, pngSignature...)
 	ihdr := make([]byte, 13)
@@ -202,6 +281,35 @@ func TestPNGRequiresFirstUniqueIHDRAndValidDimensions(t *testing.T) {
 		if _, _, err := parsePNG(data, newCollector(&metadata, &warnings)); err == nil {
 			t.Errorf("case %d: expected malformed PNG error", index)
 		}
+	}
+}
+
+func TestPNGRejectsInvalidCriticalCRCAndSkipsInvalidMetadata(t *testing.T) {
+	ihdr := make([]byte, 13)
+	binary.BigEndian.PutUint32(ihdr[0:4], 1)
+	binary.BigEndian.PutUint32(ihdr[4:8], 1)
+	badIHDR := testChunk("IHDR", ihdr)
+	badIHDR[len(badIHDR)-1] ^= 0xff
+	critical := append(append(append([]byte{}, pngSignature...), badIHDR...), testChunk("IEND", nil)...)
+	var metadata model.Metadata
+	var warnings []string
+	if _, _, err := parsePNG(critical, newCollector(&metadata, &warnings)); err == nil || !strings.Contains(err.Error(), "invalid CRC") {
+		t.Fatalf("expected critical CRC error, got %v", err)
+	}
+
+	badText := testChunk("tEXt", []byte("Author\x00Untrusted"))
+	badText[len(badText)-1] ^= 0xff
+	ancillary := append([]byte{}, pngSignature...)
+	ancillary = append(ancillary, testChunk("IHDR", ihdr)...)
+	ancillary = append(ancillary, badText...)
+	ancillary = append(ancillary, testChunk("IEND", nil)...)
+	metadata = model.Metadata{}
+	warnings = nil
+	if _, _, err := parsePNG(ancillary, newCollector(&metadata, &warnings)); err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata.Authors) != 0 || len(warnings) != 1 {
+		t.Fatalf("invalid ancillary chunk was used: authors=%v warnings=%v", metadata.Authors, warnings)
 	}
 }
 
