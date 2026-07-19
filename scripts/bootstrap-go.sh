@@ -35,10 +35,17 @@ if [[ -f "${archive_path}" ]] && ! verify_archive "${archive_path}"; then
 fi
 
 if [[ ! -f "${archive_path}" ]]; then
+  # Start from a clean temporary file. A failed or corrupted partial download
+  # must not poison later bootstrap attempts.
+  rm -f "${download_path}"
   curl --proto '=https' --tlsv1.2 --fail --location --retry 3 \
-    --continue-at - --output "${download_path}" \
+    --output "${download_path}" \
     "https://go.dev/dl/${GO_ARCHIVE}"
-  verify_archive "${download_path}"
+  if ! verify_archive "${download_path}"; then
+    rm -f "${download_path}"
+    printf 'Go toolchain checksum verification failed.\n' >&2
+    exit 1
+  fi
   mv -f "${download_path}" "${archive_path}"
 fi
 
