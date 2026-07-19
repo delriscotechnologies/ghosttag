@@ -1,11 +1,11 @@
 <h1 align="center">GHOSTTAG</h1>
 
 <p align="center">
-  <strong>One image. Hidden context. A readable report.</strong>
+  <strong>Extract the metadata. Review the report.</strong>
 </p>
 
 <p align="center">
-  A read-only, offline CLI that explains privacy-relevant metadata in JPEG and PNG files.
+  A read-only, offline CLI that extracts metadata from JPEG and PNG files and generates a report.
 </p>
 
 <p align="center">
@@ -17,35 +17,37 @@
 
 ---
 
-GHOSTTAG shows what an image can reveal beyond its pixels. Give it one JPEG or PNG and it identifies the real format, calculates a SHA-256 digest, reads supported metadata containers, and turns the findings into a compact terminal report.
+Extract embedded metadata from one JPEG or PNG file and receive a report with the detected format, dimensions, SHA-256 digest, supported metadata values, source containers, and privacy-relevant categories.
 
-The inspection stays local. GHOSTTAG does not upload the image, modify the file, analyze visual content, or crawl directories.
-
-> [!NOTE]
-> GHOSTTAG reports observable metadata, not a risk score. Finding no supported metadata does not prove that an image is anonymous or safe to share.
+Inspection stays local. The application does not upload the image, modify the file, analyze visual content, or crawl directories.
 
 ## Quick Start
 
-GHOSTTAG supports native Linux on AMD64 and ARM64. The bootstrap requires Bash, `curl`, `tar`, and `sha256sum`.
+GHOSTTAG requires **Go 1.26 or newer**.
+
+Install the latest version directly with Go:
+
+```bash
+go install github.com/delriscotechnologies/ghosttag/cmd/ghosttag@latest
+ghosttag /path/to/image.jpg
+```
+
+`go install` places the binary in `GOBIN`, or in `$(go env GOPATH)/bin` when `GOBIN` is not set. That directory must be included in your `PATH` to run `ghosttag` by name.
+
+To build and install from the repository instead:
 
 ```bash
 git clone https://github.com/delriscotechnologies/ghosttag.git
 cd ghosttag
 
-bash ./scripts/bootstrap-go.sh
-mkdir -p bin
-CGO_ENABLED=0 GOOS=linux \
-  bash ./scripts/go-local.sh build -buildvcs=false -trimpath \
-  -o ./bin/ghosttag ./cmd/ghosttag
+go test ./...
+go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+sudo install -m 0755 ./bin/ghosttag /usr/local/bin/ghosttag
+
+ghosttag /path/to/image.jpg
 ```
 
-Inspect one image:
-
-```bash
-./bin/ghosttag /path/to/image.jpg
-```
-
-The bootstrap downloads the matching pinned Go toolchain from `go.dev`, verifies its published SHA-256 checksum, and recreates `.tools/go` from the verified archive. It does not install Go globally or trust an existing ignored toolchain directory.
+The project uses the Go installation already available on the system. It does not download or maintain a separate toolchain inside the repository.
 
 ## How GHOSTTAG Works
 
@@ -56,7 +58,7 @@ An inspection moves through eight bounded stages:
 3. Detect JPEG or PNG from the file signature rather than trusting the extension.
 4. Calculate the SHA-256 digest and read the image dimensions.
 5. Parse supported EXIF, XMP, comment, and PNG text containers.
-6. Normalize equivalent tags into plain-language facts and retain their source container.
+6. Normalize equivalent tags and retain their source container.
 7. Group privacy-relevant facts into transparent categories.
 8. Neutralize unsafe terminal characters and print the report.
 
@@ -96,7 +98,7 @@ Each section answers a different question:
 | Section | What it tells you |
 | --- | --- |
 | File | Actual format, extension, size, dimensions, and SHA-256 |
-| Metadata | Normalized values and the container each value came from |
+| Metadata | Extracted values and the container each value came from |
 | Warnings | Malformed metadata, extension mismatches, or omitted data that reached a safety limit |
 | Privacy context | Which supported categories were present and whether several appeared together |
 
@@ -107,7 +109,7 @@ Each section answers a different question:
 | JPEG | APP1 EXIF, standard APP1 XMP, and COM comments |
 | PNG | eXIf, tEXt, zTXt, iTXt, and XMP stored as `XML:com.adobe.xmp` |
 
-Normalized findings can include:
+Extracted findings can include:
 
 - GPS location
 - capture time
@@ -137,7 +139,7 @@ The category count controls wording only:
 | --- | --- |
 | 0 | States that no supported categories were found and clarifies that this does not prove anonymity |
 | 1–2 | Lists the categories and facts without an elevated notice |
-| 3–5 | Adds a gentle note that the combined details may reveal more context |
+| 3–5 | Adds a notice that the combined details may reveal more context |
 
 The `3+` threshold is a GHOSTTAG product policy. It is not a NIST metric, probability, severity level, or prediction of harm. See the [notification policy](docs/notification-policy.md) for definitions, rationale, and boundaries.
 
@@ -161,24 +163,26 @@ Malformed files can still expose implementation defects. Inspect hostile files w
 
 ## Development
 
-Run the complete local workflow with the repository-managed Go toolchain:
+Use the system Go installation for the complete local workflow:
 
 ```bash
-make bootstrap
+go fmt ./...
+go test ./...
+go vet ./...
+go build -trimpath -o ./bin/ghosttag ./cmd/ghosttag
+```
+
+The Makefile provides the same workflow:
+
+```bash
 make check
-```
-
-Individual commands are also available:
-
-```bash
-make test
-make vet
 make build
+sudo make install
 ```
 
-CI runs the test and vet suites and builds Linux AMD64 and ARM64 binaries. The repository also includes native Linux VS Code tasks for bootstrap, test, vet, and build operations.
+CI runs the test and vet suites and builds Linux AMD64 and ARM64 binaries. The repository also includes VS Code tasks for test, vet, and build operations.
 
-All downloaded tools, caches, temporary files, and binaries remain inside the repository and are ignored by Git. The implementation uses only the Go standard library. Additional design notes are available in [`docs/`](docs/).
+The implementation uses only the Go standard library. Additional design notes are available in [`docs/`](docs/).
 
 ## License
 
