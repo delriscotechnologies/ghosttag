@@ -172,11 +172,8 @@ func normalizeTime(value string) (string, bool) {
 		return "", false
 	}
 
-	zonedLayouts := []string{time.RFC3339Nano, time.RFC3339}
-	for _, layout := range zonedLayouts {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return parsed.Format(time.RFC3339), true
-		}
+	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+		return parsed.Format(time.RFC3339), true
 	}
 
 	unzonedLayouts := []string{

@@ -25,7 +25,7 @@ const (
 
 type xmpFrame struct {
 	kind        string
-	text        strings.Builder
+	text        []byte
 	description bool
 }
 
@@ -72,7 +72,7 @@ func parseXMP(data []byte, source string, collector *collector) error {
 			}
 		case xml.CharData:
 			if len(stack) > 0 {
-				stack[len(stack)-1].text.Write([]byte(value))
+				stack[len(stack)-1].text = append(stack[len(stack)-1].text, value...)
 			}
 		case xml.EndElement:
 			if len(stack) == 0 {
@@ -80,7 +80,7 @@ func parseXMP(data []byte, source string, collector *collector) error {
 			}
 			frame := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
-			text := safeText(frame.text.String())
+			text := safeText(string(frame.text))
 			if text != "" {
 				kind := frame.kind
 				if kind == "li" {
