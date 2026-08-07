@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"strings"
 )
 
 const (
@@ -161,5 +160,5 @@ func isStartOfFrame(marker byte) bool {
 }
 
 func hasPrefix(data, prefix []byte) bool {
-	return len(data) >= len(prefix) && strings.EqualFold(string(data[:len(prefix)]), string(prefix))
+	return len(data) >= len(prefix) && bytes.EqualFold(data[:len(prefix)], prefix)
 }
