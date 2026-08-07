@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	maximumCompressedTextBytes = 1024 * 1024
-	maximumMetadataChunkBytes  = 8 * 1024 * 1024
-	maximumPNGChunks           = 10000
-	maximumPNGDimension        = uint32(1<<31 - 1)
+	maximumDecompressedTextBytes = 1024 * 1024
+	maximumMetadataChunkBytes    = 8 * 1024 * 1024
+	maximumPNGChunks             = 10000
+	maximumPNGDimension          = uint32(1<<31 - 1)
 )
 
 func parsePNG(data []byte, collector *collector) (int, int, error) {
@@ -208,12 +208,12 @@ func decompressText(data []byte) (string, error) {
 	}
 	defer reader.Close()
 
-	decoded, err := io.ReadAll(io.LimitReader(reader, maximumCompressedTextBytes+1))
+	decoded, err := io.ReadAll(io.LimitReader(reader, maximumDecompressedTextBytes+1))
 	if err != nil {
 		return "", err
 	}
-	if len(decoded) > maximumCompressedTextBytes {
-		return "", fmt.Errorf("decompressed text exceeds %d bytes", maximumCompressedTextBytes)
+	if len(decoded) > maximumDecompressedTextBytes {
+		return "", fmt.Errorf("decompressed text exceeds %d bytes", maximumDecompressedTextBytes)
 	}
 	return string(decoded), nil
 }
