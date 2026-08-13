@@ -144,8 +144,6 @@ The category count changes report wording only. Zero categories does not prove a
 
 It does not remove metadata, determine whether metadata is true, or decide whether an image is safe to share. Concurrent writers can still attempt unusual races, so inspect an unchanged copy of hostile input with minimum privileges and Linux resource limits.
 
-CI uses synthetic fixtures and short fuzzing runs. These checks reduce regressions but do not prove that every malformed or adversarial image is safe to process.
-
 See [SECURITY.md](SECURITY.md) for the trust boundary and vulnerability-reporting process.
 
 ## License
