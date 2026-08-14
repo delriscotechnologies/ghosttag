@@ -8,13 +8,6 @@
   <strong>Linux only · amd64 / arm64</strong>
 </p>
 
-<p align="center">
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#the-report">Report</a> ·
-  <a href="#metadata-coverage">Metadata</a> ·
-  <a href="SECURITY.md">Security</a>
-</p>
-
 ---
 
 GHOSTTAG inspects one JPEG or PNG file and extracts supported EXIF, XMP, comment, and PNG text metadata into a terminal report.
