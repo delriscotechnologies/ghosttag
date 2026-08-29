@@ -1,14 +1,12 @@
 <h1 align="center">GHOSTTAG</h1>
 
 <p align="center">
-  A read-only Linux tool for inspecting JPEG and PNG metadata.
+  A small read-only CLI for inspecting privacy-relevant JPEG and PNG metadata.
 </p>
 
 ---
 
-GHOSTTAG extracts supported EXIF, XMP, comment, and PNG text metadata from one image and produces a terminal report.
-
-It does not upload or modify the image.
+GHOSTTAG inspects one local image, calculates its SHA-256 hash, reports its dimensions, and extracts a focused set of metadata without modifying or uploading the file.
 
 ## Install
 
@@ -16,21 +14,19 @@ You need Linux and Go.
 
 ```bash
 go install github.com/delriscotechnologies/ghosttag/cmd/ghosttag@latest
-```
-
-Then inspect an image:
-
-```bash
 ghosttag /path/to/image.jpg
 ```
 
 ## What it does
 
-1. Detects JPEG or PNG from the file signature.
-2. Calculates the SHA-256 hash and image dimensions.
-3. Extracts supported metadata.
-4. Groups privacy-relevant findings such as location, capture time, device, authorship, and comments.
-5. Reports malformed or unsupported data as warnings when needed.
+- Detects JPEG or PNG from the image data and reports its dimensions.
+- Calculates SHA-256 over the input bytes.
+- Reads JPEG APP1 EXIF/XMP metadata and JPEG comments before the first image scan.
+- Reads PNG `eXIf`, `tEXt`, and uncompressed `iTXt` metadata.
+- Reports supported location, capture-time, device, authorship/copyright, and comment/description values.
+- Groups those findings into privacy-relevant categories and adds a context note when three or more categories are present.
+
+Location is currently derived from supported EXIF GPS coordinates. XMP support focuses on `CreateDate`, `DateTimeOriginal`, TIFF make/model, and Dublin Core creator, rights, and description values.
 
 ## Output
 
@@ -38,43 +34,28 @@ ghosttag /path/to/image.jpg
 ghosttag — image metadata report
 
 File
-  Name: sample-metadata.png
+  Name: sample.png
   Detected format: PNG
-  Extension: .png
-  Size: 402 B (402 bytes)
-  Dimensions: 2 × 2 pixels
-  SHA-256: 2f19e2d43cf22ae8ffe544505f01e30e03cffbbd02075ee7e0afcf3bf78fed63
-
-Metadata
-  Containers: PNG tEXt, PNG iTXt, PNG XMP
-  Capture time:
-    - 2026-07-18T12:34:56Z [PNG XMP]
-  Author:
-    - Example Author [PNG tEXt:Author]
-  Comment or description:
-    - Example comment [PNG tEXt:Comment]
+  Size: 558 bytes
+  Dimensions: 1 × 1 pixels
+  SHA-256: 234e2aaecf8145e20ee32d6066321474877b031031878bb16ea5261883235bf2
 
 Privacy context
-  Categories found (3): capture time, authorship, comments
-  Note: This file contains 3 privacy-relevant metadata categories: capture time, authorship, comments. In combination, these details can reveal more context than each detail alone. Consider whether they are appropriate for the intended recipient or platform.
-```
-
-## Demo
-
-```bash
-ghosttag photo.jpg
+  Categories found (4): capture time, device, authorship, comments
 ```
 
 ## Scope and limits
 
-- Linux only.
-- Accepts one JPEG or PNG file per run.
-- Maximum input size is 100 MiB.
-- Read-only and makes no network calls during inspection.
-- Does not scan directories, inspect pixels, recognize faces, or remove metadata.
-- Metadata can be missing, malformed, stale, or intentionally misleading.
+- Supported target: Linux.
+- Accepts one regular JPEG or PNG file per run.
+- Rejects files reported as larger than 100 MiB before reading.
+- Makes no network calls during inspection and does not write to the input file.
+- Does not decode pixels, recognize visual subjects, remove metadata, or scan directories.
+- This is a focused metadata inspector, not a complete JPEG, PNG, TIFF, EXIF, or XMP implementation.
+- PNG `zTXt`, compressed `iTXt`, XMP GPS, and metadata placed after the first JPEG image scan are outside the current scope.
+- Metadata may be missing, stale, malformed, or intentionally misleading.
 
-See [SECURITY.md](SECURITY.md) for security guidance.
+See [SECURITY.md](SECURITY.md) for the security boundary.
 
 ## License
 

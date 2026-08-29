@@ -1,4 +1,4 @@
+ghosttag
 bin/
-coverage/
-dist/
 .vscode/
+.DS_Store
