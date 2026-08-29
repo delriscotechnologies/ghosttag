@@ -56,7 +56,7 @@ Metadata
 
 Privacy context
   Categories found (3): capture time, authorship, comments
-  Note: This file contains 3 privacy-relevant metadata categories.
+  Note: This file contains 3 privacy-relevant metadata categories: capture time, authorship, comments. In combination, these details can reveal more context than each detail alone. Consider whether they are appropriate for the intended recipient or platform.
 ```
 
 ## Demo
