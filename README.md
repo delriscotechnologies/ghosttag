@@ -34,31 +34,35 @@ ghosttag /path/to/image.jpg
 
 ## Output
 
-The terminal report includes:
+```text
+ghosttag — image metadata report
 
-| Section | Contents |
-| --- | --- |
-| File | Format, size, dimensions, and SHA-256 |
-| Metadata | Extracted metadata and source containers |
-| Warnings | Parsing or validation warnings when present |
-| Privacy context | Privacy-relevant categories found |
+File
+  Name: sample-metadata.png
+  Detected format: PNG
+  Extension: .png
+  Size: 402 B (402 bytes)
+  Dimensions: 2 × 2 pixels
+  SHA-256: 2f19e2d43cf22ae8ffe544505f01e30e03cffbbd02075ee7e0afcf3bf78fed63
+
+Metadata
+  Containers: PNG tEXt, PNG iTXt, PNG XMP
+  Capture time:
+    - 2026-07-18T12:34:56Z [PNG XMP]
+  Author:
+    - Example Author [PNG tEXt:Author]
+  Comment or description:
+    - Example comment [PNG tEXt:Comment]
+
+Privacy context
+  Categories found (3): capture time, authorship, comments
+  Note: This file contains 3 privacy-relevant metadata categories.
+```
 
 ## Demo
 
 ```bash
 ghosttag photo.jpg
-```
-
-Example:
-
-```text
-File
-  Detected format: JPEG
-  Dimensions: 4032 × 3024 pixels
-  SHA-256: ...
-
-Privacy context
-  Categories found: location, capture time, device
 ```
 
 ## Scope and limits
