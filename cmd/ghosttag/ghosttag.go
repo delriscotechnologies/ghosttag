@@ -150,7 +150,7 @@ func pngText(b []byte, m metadata) {
 }
 func iTXt(b []byte, m metadata) {
 	i := bytes.IndexByte(b, 0)
-	if i <= 0 || i+3 > len(b) || b[i+1] != 0 {
+	if i <= 0 || i+3 > len(b) || b[i+1] != 0 || b[i+2] != 0 {
 		return
 	}
 	key := string(b[:i])
