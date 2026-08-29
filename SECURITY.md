@@ -1,43 +1,17 @@
-# Security Policy
+# Security policy
 
-## Supported Version
+GHOSTTAG treats image bytes, metadata, paths, and displayed strings as untrusted input.
 
-Security fixes are applied to the current `main` branch. No older release line is maintained yet.
+The current implementation:
 
-The supported platform is Linux on amd64 and arm64.
+- reads one regular local file and does not modify it;
+- checks the file's reported size and rejects inputs already larger than 100 MiB;
+- uses Go's JPEG/PNG image configuration decoders for format detection and dimensions;
+- bounds each parsed EXIF directory to 256 entries and individual referenced EXIF values to 1 MiB;
+- limits each displayed metadata field to 32 distinct values;
+- strips terminal control and Unicode format characters from displayed text and truncates long values;
+- performs no network requests during inspection.
 
-## Reporting a Vulnerability
+GHOSTTAG is deliberately a focused metadata inspector rather than a complete image validator. It does not parse every legal EXIF/XMP field, PNG text representation, or JPEG metadata placement. Malformed or hostile files may still expose parser defects, and metadata should not be treated as trustworthy simply because it was extracted successfully.
 
-For a sensitive report, use GitHub's **Report a vulnerability** option in the repository's **Security** tab when it is available. If private vulnerability reporting is unavailable, contact the repository owner through the GitHub profile and request a private channel before sharing exploit details.
-
-Do not publish sensitive proof-of-concept files, personal metadata, credentials, or exploit details in a public issue.
-
-For non-sensitive hardening suggestions, open a regular GitHub issue with the smallest reproducible example possible.
-
-## Security Boundary
-
-`ghosttag` treats image metadata, file names, paths, and parser diagnostics as untrusted input. The inspector:
-
-- opens only regular files and rejects symbolic-link inputs with Linux no-follow semantics;
-- rejects files larger than 100 MiB and rejects common concurrent changes detected through size or modification-time differences;
-- validates the JPEG and PNG container structure needed to locate supported metadata and dimensions;
-- bounds JPEG marker traversal, validates complete start-of-frame headers, and resumes marker parsing after scan data;
-- requires a first, unique PNG `IHDR`, validates dimensions and critical-chunk CRCs, ignores ancillary chunks with invalid CRCs, and rejects data after `IEND`;
-- limits PNG chunk counts, metadata chunk sizes, and decompression of compressed PNG text;
-- limits XMP nesting depth and token count and accepts supported properties only from recognized namespaces;
-- keeps XMP GPS latitude and longitude values within the same RDF description instead of combining unrelated blocks;
-- limits normalized values independently for each metadata field, locations, and parser warnings;
-- validates capture-time formats and GPS direction and degree, minute, and second components before classification;
-- retains distinct source containers when equivalent values occur in multiple containers; and
-- neutralizes terminal control and Unicode format characters in reported values and CLI diagnostics.
-
-The parser is not a complete JPEG or PNG decoder. The tool is intentionally read-only and offline during inspection. It does not:
-
-- modify or remove metadata;
-- upload images or reports;
-- decode image pixels or inspect visual subjects;
-- scan directories recursively;
-- treat unknown XMP namespaces as standard metadata properties; or
-- claim that an image is anonymous when no supported metadata is found.
-
-Malformed files may still expose implementation defects. A concurrent writer may also attempt changes that preserve observable file attributes. Inspect an unchanged copy with minimum permissions and Linux resource limits, and do not rely on `ghosttag` as the sole control for handling hostile files.
+Report genuine security issues privately through the repository's GitHub Security Advisory interface. Do not place sensitive images, personal metadata, credentials, or exploit files in public issues.
