@@ -8,6 +8,7 @@ The current implementation:
 - checks the file's reported size and rejects inputs already larger than 100 MiB;
 - uses Go's JPEG/PNG image configuration decoders for format detection and dimensions;
 - bounds each parsed EXIF directory to 256 entries and individual referenced EXIF values to 1 MiB;
+- accepts EXIF GPS locations only with rational DMS values and valid `N/S` and `E/W` direction references;
 - limits each displayed metadata field to 32 distinct values;
 - strips terminal control and Unicode format characters from displayed text and truncates long values;
 - performs no network requests during inspection.
