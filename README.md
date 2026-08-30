@@ -26,9 +26,9 @@ ghosttag /path/to/image.jpg
 - Reports supported location, capture-time, device, authorship/copyright, and comment/description values.
 - Groups those findings into privacy-relevant categories and adds a context note when three or more categories are present.
 
-Location is currently derived from supported EXIF GPS coordinates. XMP support focuses on `CreateDate`, `DateTimeOriginal`, TIFF make/model, and Dublin Core creator, rights, and description values.
+Location is derived from EXIF GPS coordinates only when the latitude/longitude fields use the expected rational format and valid `N/S` and `E/W` references. XMP support focuses on `CreateDate`, `DateTimeOriginal`, TIFF make/model, and Dublin Core creator, rights, and description values.
 
-## Output
+## Output excerpt
 
 ```text
 ghosttag — image metadata report
@@ -52,7 +52,7 @@ Privacy context
 - Makes no network calls during inspection and does not write to the input file.
 - Does not decode pixels, recognize visual subjects, remove metadata, or scan directories.
 - This is a focused metadata inspector, not a complete JPEG, PNG, TIFF, EXIF, or XMP implementation.
-- PNG `zTXt`, compressed `iTXt`, XMP GPS, and metadata placed after the first JPEG image scan are outside the current scope.
+- PNG `tEXt` values are decoded as Latin-1 and text keywords are matched case-sensitively. `zTXt`, compressed `iTXt`, XMP GPS, and metadata placed after the first JPEG image scan are outside the current scope.
 - Metadata may be missing, stale, malformed, or intentionally misleading.
 
 See [SECURITY.md](SECURITY.md) for the security boundary.

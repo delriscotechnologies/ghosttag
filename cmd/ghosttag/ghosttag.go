@@ -9,7 +9,6 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"math"
 	"os"
 	"strings"
 	"unicode"
@@ -18,7 +17,7 @@ import (
 var pngSig = []byte{137, 80, 78, 71, 13, 10, 26, 10}
 var exifFields = map[uint16]string{0x010e: "comments", 0x010f: "make", 0x0110: "model", 0x013b: "author", 0x8298: "author"}
 var xmpFields = map[xml.Name]string{{Space: "http://ns.adobe.com/xap/1.0/", Local: "CreateDate"}: "capture", {Space: "http://ns.adobe.com/tiff/1.0/", Local: "Make"}: "make", {Space: "http://ns.adobe.com/tiff/1.0/", Local: "Model"}: "model", {Space: "http://ns.adobe.com/exif/1.0/", Local: "DateTimeOriginal"}: "capture", {Space: "http://purl.org/dc/elements/1.1/", Local: "creator"}: "author", {Space: "http://purl.org/dc/elements/1.1/", Local: "rights"}: "author", {Space: "http://purl.org/dc/elements/1.1/", Local: "description"}: "comments"}
-var pngFields = map[string]string{"author": "author", "artist": "author", "copyright": "author", "description": "comments", "comment": "comments", "caption": "comments", "creation time": "capture"}
+var pngFields = map[string]string{"Author": "author", "Artist": "author", "Copyright": "author", "Description": "comments", "Comment": "comments", "Caption": "comments", "Creation Time": "capture"}
 
 type metadata map[string][]string
 type report struct {
@@ -145,7 +144,7 @@ func scanPNG(b []byte, m metadata) {
 func pngText(b []byte, m metadata) {
 	i := bytes.IndexByte(b, 0)
 	if i > 0 {
-		storeText(string(b[:i]), string(b[i+1:]), m)
+		storeText(string(b[:i]), latin1(b[i+1:]), m)
 	}
 }
 func iTXt(b []byte, m metadata) {
@@ -165,8 +164,8 @@ func iTXt(b []byte, m metadata) {
 	storeText(key, string(r), m)
 }
 func storeText(k, v string, m metadata) {
-	k = strings.ToLower(clean(k))
-	if k == "xml:com.adobe.xmp" {
+	k = clean(k)
+	if k == "XML:com.adobe.xmp" {
 		add(m, "containers", "PNG XMP")
 		parseXMP([]byte(v), m)
 		return
@@ -213,26 +212,19 @@ func parseEXIF(b []byte, m metadata) {
 	for _, e := range ifd(b, o, gps) {
 		switch e.tag {
 		case 1:
-			lr = text(e.data)
+			if e.typ == 2 { lr = text(e.data) }
 		case 2:
-			lat = rationals(e.data, o)
+			if e.typ == 5 { lat = rationals(e.data, o) }
 		case 3:
-			or = text(e.data)
+			if e.typ == 2 { or = text(e.data) }
 		case 4:
-			lon = rationals(e.data, o)
+			if e.typ == 5 { lon = rationals(e.data, o) }
 		}
 	}
-	if len(lat) == 3 && len(lon) == 3 {
-		a, z := dms(lat), dms(lon)
-		if strings.EqualFold(lr, "S") {
-			a = -a
-		}
-		if strings.EqualFold(or, "W") {
-			z = -z
-		}
-		if math.Abs(a) <= 90 && math.Abs(z) <= 180 {
-			add(m, "location", fmt.Sprintf("%.6f, %.6f", a, z))
-		}
+	if (lr == "N" || lr == "S") && (or == "E" || or == "W") {
+		a, aok := dms(lat, 90); z, zok := dms(lon, 180)
+		if lr == "S" { a = -a }; if or == "W" { z = -z }
+		if aok && zok { add(m, "location", fmt.Sprintf("%.6f, %.6f", a, z)) }
 	}
 }
 func ifd(b []byte, o binary.ByteOrder, off uint32) (out []entry) {
@@ -289,8 +281,15 @@ func rationals(v []byte, o binary.ByteOrder) (r []float64) {
 	}
 	return
 }
-func dms(v []float64) float64 { return v[0] + v[1]/60 + v[2]/3600 }
-func text(v []byte) string    { return string(bytes.Trim(v, "\x00")) }
+func dms(v []float64, limit float64) (float64, bool) {
+	if len(v) != 3 || v[0] < 0 || v[1] < 0 || v[1] >= 60 || v[2] < 0 || v[2] >= 60 { return 0, false }
+	n := v[0] + v[1]/60 + v[2]/3600
+	return n, n <= limit
+}
+func text(v []byte) string { return string(bytes.Trim(v, "\x00")) }
+func latin1(v []byte) string {
+	r := make([]rune, len(v)); for i, b := range v { r[i] = rune(b) }; return string(r)
+}
 
 func parseXMP(b []byte, m metadata) {
 	d := xml.NewDecoder(bytes.NewReader(b))
